@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+<!-- Layout -->
+<div th:fragment="chart" th:remove="tag">
+
+    <!-- Loading indicator -->
+    <div class="flex justify-center items-center h-40 py-5" x-show="loading">
+        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+    </div>
+
+    <div class="bg-white p-4 rounded-lg shadow-mdpy-5" x-show="!loading">
+
+        <div class="overflow-x-auto">
+            <table class="min-w-full bg-white border border-gray-300">
+                <thead>
+                <tr>
+                    <th class="py-2 px-4 border-b border-r">Release Target</th>
+                    <th class="py-2 px-4 border-b border-r">Total Releases</th>
+                    <th class="py-2 px-4 border-b border-r">Total Chapters</th>
+                    <th class="py-2 px-4 border-b border-r">Executed Chapters</th>
+                    <th class="py-2 px-4 border-b border-r">Execution Rate</th>
+                    <th class="py-2 px-4 border-b">Next Release</th>
+                    <th class="py-2 px-4 border-b">Latest Release</th>
+                </tr>
+                </thead>
+                <tbody>
+                <template :key="index" x-for="(pivot, index) in pivotData">
+                    <tr :class="index % 2 === 0 ? 'bg-gray-50' : 'bg-white'">
+                        <td class="py-2 px-4 border-b border-r font-medium" x-text="pivot.targetName"></td>
+                        <td class="py-2 px-4 border-b border-r text-center" x-text="pivot.chartReleases"></td>
+                        <td class="py-2 px-4 border-b border-r text-center" x-text="pivot.chartChapters"></td>
+                        <td class="py-2 px-4 border-b border-r text-center" x-text="pivot.executedChapters"></td>
+                        <td class="py-2 px-4 border-b border-r text-center">
+                            <span
+                                    :class="getExecutionRateClass(pivot.executionRate)"
+                                    x-text="formatPercentage(pivot.executionRate)">
+                            </span>
+                        </td>
+                        <td :class="getDateClass(pivot.nextRelease)"
+                            class="py-2 px-4 border-b"
+                            x-text="pivot.nextRelease"></td>
+                        <td :class="getDateClass(pivot.latestRelease)"
+                            class="py-2 px-4 border-b"
+                            x-text="pivot.latestRelease"></td>
+                    </tr>
+                </template>
+                <!-- Totals row -->
+                <tr class="bg-gray-100 font-semibold">
+                    <td class="py-2 px-4 border-b border-r">Total</td>
+                    <td class="py-2 px-4 border-b border-r text-center" x-text="pivotTotals.releases"></td>
+                    <td class="py-2 px-4 border-b border-r text-center" x-text="pivotTotals.chapters"></td>
+                    <td class="py-2 px-4 border-b border-r text-center" x-text="pivotTotals.executed"></td>
+                    <td class="py-2 px-4 border-b border-r text-center">
+                        <span
+                                :class="getExecutionRateClass(pivotTotals.executionRate)"
+                                x-text="formatPercentage(pivotTotals.executionRate)">
+                        </span>
+                    </td>
+                    <td class="py-2 px-4 border-b">-</td>
+                    <td class="py-2 px-4 border-b">-</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Individual target charts -->
+    <div class="py-5" x-show="!loading">
+        <!-- Combined chart -->
+        <div class="bg-white p-4 rounded-lg shadow-md mb-6" x-show="!loading">
+            <h2 class="text-xl font-semibold mb-2">All Release Targets</h2>
+            <div class="flex justify-end mb-2">
+                <button @click="downloadChart('combinedChart')"
+                        class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-4 rounded text-sm">
+                    Download Chart
+                </button>
+            </div>
+            <div class="h-80">
+                <canvas id="combinedChart"></canvas>
+            </div>
+        </div>
+
+        <template :key="index" x-for="(chart, index) in targetCharts">
+            <div class="bg-white p-4 rounded-lg shadow-md mb-6">
+                <h2 class="text-xl font-semibold mb-2" x-text="chart.targetName"></h2>
+                <div class="flex justify-end mb-2">
+                    <button @click="downloadChart(chart.canvasId)"
+                            class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-4 rounded text-sm">
+                        Download Chart
+                    </button>
+                </div>
+                <div class="h-64">
+                    <canvas :id="chart.canvasId"></canvas>
+                </div>
+            </div>
+        </template>
+    </div>
+
+</div>
+</body>
+</html>

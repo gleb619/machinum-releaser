@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+<!-- Layout -->
+<div th:fragment="view">
+
+    <div x-show="drawerMode == 'view' && selectedBook">
+        <div class="flex justify-center">
+            <img :src="'/api/images/' + (selectedBook?.imageId || '00000000-0000-0000-0000-000000000000')"
+                 class="h-64 object-contain rounded-lg">
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+            <div>
+                <h3 class="text-sm font-medium text-gray-500">Id</h3>
+                <p class="mt-1" x-text="selectedBook?.id"></p>
+            </div>
+            <div>
+                <h3 class="text-sm font-medium text-gray-500">Unique Id</h3>
+                <p class="mt-1" x-text="selectedBook?.uniqueId"></p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+            <div>
+                <h3 class="text-sm font-medium text-gray-500">Russian Name</h3>
+                <p class="mt-1" x-text="selectedBook?.ruName"></p>
+            </div>
+            <div>
+                <h3 class="text-sm font-medium text-gray-500">English Name</h3>
+                <p class="mt-1" x-text="selectedBook?.enName"></p>
+            </div>
+            <div>
+                <h3 class="text-sm font-medium text-gray-500">Original Name</h3>
+                <p class="mt-1" x-text="selectedBook?.originName"></p>
+            </div>
+            <div>
+                <h3 class="text-sm font-medium text-gray-500">Author</h3>
+                <p class="mt-1" x-text="selectedBook?.author"></p>
+            </div>
+            <div>
+                <h3 class="text-sm font-medium text-gray-500">Year</h3>
+                <p class="mt-1" x-text="selectedBook?.year"></p>
+            </div>
+            <div>
+                <h3 class="text-sm font-medium text-gray-500">Type</h3>
+                <p class="mt-1" x-text="selectedBook?.type"></p>
+            </div>
+            <div>
+                <h3 class="text-sm font-medium text-gray-500">Chapters</h3>
+                <p class="mt-1" x-text="selectedBook?.chapters"></p>
+            </div>
+            <div>
+                <h3 class="text-sm font-medium text-gray-500">Telegram ID</h3>
+                <p class="mt-1" x-text="selectedBook?.tgId"></p>
+            </div>
+        </div>
+
+        <div class="mt-4">
+            <h3 class="text-sm font-medium text-gray-500">Link</h3>
+            <a
+                    :href="selectedBook?.link"
+                    class="mt-1 text-blue-600 hover:underline"
+                    target="_blank"
+                    x-text="selectedBook?.linkText || selectedBook?.link"
+            ></a>
+        </div>
+
+        <div class="mt-4">
+            <h3 class="text-sm font-medium text-gray-500">Genres</h3>
+            <div class="mt-1 flex flex-wrap gap-2">
+                <template :key="genre" x-for="genre in selectedBook?.genre">
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                          x-text="genre"></span>
+                </template>
+            </div>
+        </div>
+
+        <div class="mt-4">
+            <h3 class="text-sm font-medium text-gray-500">Tags</h3>
+            <div class="mt-1 flex flex-wrap gap-2">
+                <template :key="tag" x-for="tag in selectedBook?.tags">
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800"
+                          x-text="tag"></span>
+                </template>
+            </div>
+        </div>
+
+        <div class="mt-4">
+            <h3 class="text-sm font-medium text-gray-500">Description</h3>
+            <p class="mt-1 whitespace-pre-line" x-text="selectedBook?.description"></p>
+        </div>
+    </div>
+
+</div>
+</body>
+</html>

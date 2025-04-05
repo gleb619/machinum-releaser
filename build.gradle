@@ -1,0 +1,140 @@
+buildscript {
+    ext {
+        joobyVersion = '3.5.5'
+        openapiVersion = '7.12.0'
+        lombokVersion = '1.18.36'
+        slf4jVersion = '1.7.36'
+        jdbiVersion = '3.47.0'
+        assertjVersion = '3.27.3'
+        testcontainersVersion = '1.19.8'
+        junitVersion = '5.11.4'
+        mockitoVersion = '5.16.1'
+        wiremockVersion = '3.12.1'
+    }
+}
+
+plugins {
+    id "application"
+    id "io.jooby.run" version "$joobyVersion"
+    id "io.spring.dependency-management" version "1.1.0"
+    id "com.google.osdetector" version "1.7.3"
+    id "com.github.johnrengelman.shadow" version "7.1.2"
+    id "io.jooby.openAPI" version "$joobyVersion"
+    id 'org.openapi.generator' version "$openapiVersion"
+}
+
+group "machinum"
+version "1.0.0"
+mainClassName = "machinum.App"
+sourceCompatibility = 17
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+}
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
+
+configurations {
+    compileOnly {
+        extendsFrom annotationProcessor
+    }
+}
+
+dependencyManagement {
+    imports {
+        mavenBom "io.jooby:jooby-bom:$joobyVersion"
+    }
+}
+
+dependencies {
+    // jooby
+    annotationProcessor "io.jooby:jooby-apt"
+    implementation "io.jooby:jooby-jetty"
+    implementation "io.jooby:jooby-logback"
+    implementation "io.jooby:jooby-jackson"
+    implementation 'io.jooby:jooby-thymeleaf:3.6.0'
+
+    // docs
+    implementation('io.jooby:jooby-openapi') {
+        exclude group: 'com.google.guava', module: 'guava'
+    }
+    implementation 'io.swagger.core.v3:swagger-annotations:2.2.28'
+
+    // logs
+//  implementation 'ch.qos.logback:logback-classic:1.5.16'
+//  implementation 'ch.qos.logback:logback-core:1.5.16'
+
+    // db
+    implementation 'io.jooby:jooby-hikari'
+    implementation 'io.jooby:jooby-jdbi'
+    implementation "org.jdbi:jdbi3-jackson2:$jdbiVersion"
+    implementation "org.jdbi:jdbi3-json:$jdbiVersion"
+    implementation "org.jdbi:jdbi3-postgres:$jdbiVersion"
+    implementation('io.jooby:jooby-flyway:3.6.1') {
+        exclude group: 'org.flywaydb', module: 'flyway-core'
+    }
+    implementation 'org.flywaydb:flyway-core:10.10.0'
+    implementation 'org.flywaydb:flyway-database-postgresql:10.10.0'
+    implementation 'org.postgresql:postgresql:42.7.5'
+
+    // misc
+    compileOnly "org.projectlombok:lombok:$lombokVersion"
+    annotationProcessor "org.projectlombok:lombok:$lombokVersion"
+
+    implementation 'io.avaje:avaje-validator:2.9'
+    annotationProcessor 'io.avaje:avaje-validator-generator:2.9'
+
+    testCompileOnly "org.projectlombok:lombok:$lombokVersion"
+    testAnnotationProcessor "org.projectlombok:lombok:$lombokVersion"
+
+    // targets
+    implementation 'com.github.pengrad:java-telegram-bot-api:8.1.0'
+    implementation 'net.fellbaum:jemoji:1.6.0'
+
+    // test
+    testImplementation "org.junit.jupiter:junit-jupiter-api:$junitVersion"
+    testImplementation "org.junit.jupiter:junit-jupiter-engine:$junitVersion"
+    testImplementation "io.jooby:jooby-test"
+//  testImplementation 'com.squareup.okhttp3:okhttp:4.12.0'
+    testImplementation "org.mockito:mockito-core:$mockitoVersion"
+    testImplementation "org.mockito:mockito-junit-jupiter:$mockitoVersion"
+    testImplementation "org.assertj:assertj-core:$assertjVersion"
+
+    testImplementation "org.wiremock:wiremock-standalone:$wiremockVersion"
+
+    testImplementation "org.testcontainers:testcontainers:$testcontainersVersion"
+    testImplementation "org.testcontainers:junit-jupiter:$testcontainersVersion"
+    testImplementation "org.testcontainers:postgresql:$testcontainersVersion"
+}
+
+test {
+    useJUnitPlatform()
+}
+
+/** Java debug information: */
+tasks.withType(JavaCompile) {
+    options.compilerArgs += [
+            '-parameters',
+            '-Ajooby.incremental=true',
+            '-Ajooby.services=true',
+            '-Ajooby.debug=false'
+    ]
+    options.debug = true
+}
+
+shadowJar {
+    mergeServiceFiles()
+}
+
+joobyRun {
+    mainClass = mainClassName
+    restartExtensions = ["conf", "properties", "class"]
+    compileExtensions = ["java"]
+    port = 8077
+}
+
+// swagger build
+jar.dependsOn openAPI
