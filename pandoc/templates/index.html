@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <title>Markdown to EPUB Converter</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            background-color: #f9f9f9;
+            border-radius: 5px;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 10px;
+        }
+        label {
+            display: block;
+            margin: 15px 0 5px;
+            font-weight: bold;
+        }
+        input[type="text"], input[type="number"] {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        input[type="file"] {
+            margin-bottom: 10px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .flash {
+            padding: 10px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .flash.error {
+            background-color: #ffebee;
+            color: #c62828;
+            border: 1px solid #ef9a9a;
+        }
+        .flash.success {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #a5d6a7;
+        }
+        .warning {
+            background-color: #fff3e0;
+            color: #e65100;
+            border: 1px solid #ffcc80;
+            padding: 10px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Markdown to EPUB Converter</h1>
+
+    {% if not pandoc_installed %}
+    <div class="warning">
+        <strong>Warning:</strong> Pandoc is not installed or not found in PATH.
+        Please <a href="https://pandoc.org/installing.html" target="_blank">install Pandoc</a> to use this converter.
+    </div>
+    {% endif %}
+
+    {% for category, message in get_flashed_messages(with_categories=true) %}
+    <div class="flash {{ category }}">
+        {{ message }}
+    </div>
+    {% endfor %}
+
+    <form action="{{ url_for('convert') }}" enctype="multipart/form-data" method="post">
+        <label for="markdown_files">Select Markdown Files:</label>
+        <input accept=".md,.markdown,.txt" id="markdown_files" multiple name="markdown_files" required type="file">
+        <p><small>You can select multiple files by holding Ctrl (or Cmd on Mac) while selecting.</small></p>
+
+        <label for="cover_image">Cover Image (optional):</label>
+        <input accept=".jpg,.jpeg,.png,.gif" id="cover_image" name="cover_image" type="file">
+
+        <label for="title">Title (optional):</label>
+        <input id="title" name="title" placeholder="Enter book title" type="text">
+
+        <label for="author">Author (optional):</label>
+        <input id="author" name="author" placeholder="Enter author name" type="text">
+
+        <label for="output_filename">Output Filename:</label>
+        <input id="output_filename" name="output_filename" required type="text" value="output.epub">
+
+        <label for="toc_depth">Table of Contents Depth:</label>
+        <input id="toc_depth" max="6" min="1" name="toc_depth" type="number" value="2">
+
+        <button type="submit">Convert to EPUB</button>
+    </form>
+</div>
+</body>
+</html>

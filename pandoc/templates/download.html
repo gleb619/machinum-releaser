@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <title>Download EPUB</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+            text-align: center;
+        }
+        .container {
+            background-color: #f9f9f9;
+            border-radius: 5px;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 10px;
+        }
+        .download-button {
+            display: inline-block;
+            background-color: #4CAF50;
+            color: white;
+            padding: 15px 25px;
+            margin: 20px 0;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 18px;
+            text-decoration: none;
+        }
+        .download-button:hover {
+            background-color: #45a049;
+        }
+        .back-link {
+            display: block;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Your EPUB is Ready!</h1>
+    <p>Your markdown files have been successfully converted to EPUB format.</p>
+
+    <a class="download-button" href="{{ url_for('get_file', session_id=session_id, filename=filename) }}">
+        Download {{ filename }}
+    </a>
+
+    <p><small>After downloading, your files will be automatically deleted from our server.</small></p>
+
+    <a class="back-link" href="{{ url_for('cleanup', session_id=session_id) }}">Return to converter</a>
+</div>
+
+<script>
+    // Automatically trigger cleanup after download
+    document.querySelector('.download-button').addEventListener('click', function() {
+        setTimeout(function() {
+            window.location.href = "{{ url_for('cleanup', session_id=session_id) }}";
+        }, 3000);
+    });
+</script>
+</body>
+</html>
