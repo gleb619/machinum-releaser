@@ -1,0 +1,54 @@
+task downloadTriangle {
+    def url = "https://github.com/esimov/triangle/releases/download/v2.0.0/triangle-2.0.0-linux-amd64.tar.gz"
+    def archiveName = "triangle-2.0.0-linux-amd64.tar.gz"
+    def tempDir = "${rootProject.rootDir}/build/triangle"
+    def finalDir = "${rootProject.rootDir}"
+
+    doLast {
+        def targetFile = new File(finalDir, "triangle")
+        if (!targetFile.exists()) {
+            println "[downloadTriangle] Will download zip into: ${tempDir}"
+            println "[downloadTriangle] After unzip will put binary to: ${finalDir}"
+
+            // Create necessary directories
+            mkdir tempDir
+            mkdir finalDir
+
+            def archive = new File(tempDir, archiveName)
+            // Download the archive
+            println "[downloadTriangle] Downloading ${archiveName}..."
+
+            def ant = new AntBuilder()
+
+            ant.get(src: url, dest: archive, skipexisting: true)
+
+            // Extract the archive
+            println "[downloadTriangle] Extracting ${archiveName}..."
+            ant.untar(src: archiveName, dest: tempDir, compression: "gzip")
+
+            // Find and move the 'triangle' binary
+            println "[downloadTriangle] Moving 'triangle' binary to ${finalDir}..."
+            def triangleFile = fileTree(tempDir).matching {
+                include "**/**/triangle"
+            }.singleFile
+
+            copy {
+                from triangleFile.absolutePath
+                into finalDir
+            }
+
+            // Clean up temporary files
+            println "[downloadTriangle] Cleaning up temporary files..."
+            delete tempDir
+            delete archiveName
+
+            // Add execution permission to the target file
+            println "[downloadTriangle] Setting execute permission..."
+            targetFile.setExecutable(true, false)
+
+            println "[downloadTriangle] Done. The 'triangle' binary is located in ${finalDir}."
+        } else {
+            println "[downloadTriangle] File already exists and located in ${finalDir}."
+        }
+    }
+}

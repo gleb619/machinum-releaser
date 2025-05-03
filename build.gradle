@@ -93,6 +93,9 @@ dependencies {
     // targets
     implementation 'com.github.pengrad:java-telegram-bot-api:8.1.0'
     implementation 'net.fellbaum:jemoji:1.6.0'
+    implementation 'net.coobird:thumbnailator:0.4.20'
+//    implementation 'io.documentnode:epub4j-core:4.2.2'
+//    implementation 'nl.siegmann.epublib:epublib-core:3.1'
 
     // test
     testImplementation "org.junit.jupiter:junit-jupiter-api:$junitVersion"
@@ -136,5 +139,8 @@ joobyRun {
     port = 8077
 }
 
+apply from: "$rootDir/gradle/triangle.gradle"
+
 // swagger build
 jar.dependsOn openAPI
+jar.dependsOn downloadTriangle
