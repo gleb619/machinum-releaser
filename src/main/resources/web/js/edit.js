@@ -19,6 +19,7 @@ export function editApp() {
       author: '',
       description: '',
       imageId: null,
+      originImageId: null,
     },
   
     openCreateDrawer() {
@@ -42,6 +43,7 @@ export function editApp() {
         author: '',
         description: '',
         imageId: null,
+        originImageId: null,
       };
       this.genreInput = '';
       this.tagInput = '';
@@ -99,6 +101,7 @@ export function editApp() {
         this.tagInput = book.tags ? book.tags.join(', ') : '';
         this.drawerMode = 'edit';
         this.drawerOpen = true;
+        this.comboboxInputValue = this.newBook?.uniqueId || '';
     },
 
     editSelectedBook() {
@@ -106,9 +109,10 @@ export function editApp() {
         this.genreInput = this.selectedBook.genre ? this.selectedBook.genre.join(', ') : '';
         this.tagInput = this.selectedBook.tags ? this.selectedBook.tags.join(', ') : '';
         this.drawerMode = 'edit';
+        this.comboboxInputValue = this.newBook?.uniqueId || '';
     },
   
-    async handleImageUpload(event) {
+    async handleImageUpload(event, key) {
         const file = event.target.files[0];
         if (!file) return;
 
@@ -132,15 +136,15 @@ export function editApp() {
 
             // Store the image ID in the newBook object
             const result = await response.json();
-            this.newBook.imageId = result.id;
+            this.newBook[key] = result.id;
             this.showToast('Image uploaded successfully');
         } catch (error) {
             console.error('Error image uploading:', error);
             this.showToast('Failed to upload image: ' + error.message, true);
         } finally {
-            this.isLoading = false;
             this.isUploading = false;
             document.getElementById('imageUpload').value = '';
+            document.getElementById('originImageUpload').value = '';
         }
     },
 

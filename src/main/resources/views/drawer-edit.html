@@ -21,7 +21,8 @@
                             </svg>
                         </div>
                     </div>
-                    <input @change="handleImageUpload" accept="image/*" class="hidden" id="imageUpload" type="file">
+                    <input @change="handleImageUpload($event, 'imageId')" accept="image/*" class="hidden"
+                           id="imageUpload" type="file">
                     <button @click="document.getElementById('imageUpload').click()" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                             type="button">
                         <svg class="-ml-1 mr-2 h-5 w-5 text-gray-500" fill="none" stroke="currentColor"
@@ -44,6 +45,48 @@
                     <span class="text-sm text-blue-500">Uploading...</span>
                 </div>
             </div>
+            <div class="mb-4" x-show="newBook?.id">
+                <label class="block text-sm font-medium text-gray-700">Origin Image</label>
+                <div class="mt-1 flex items-center" x-show="drawerMode == 'edit' && newBook?.id">
+                    <div class="mr-4">
+                        <img :src="'/api/images/' + (newBook?.originImageId || '00000000-0000-0000-0000-000000000000')"
+                             class="h-32 w-32 object-cover rounded-md" x-show="newBook.originImageId">
+                        <div class="h-32 w-32 bg-gray-200 flex items-center justify-center rounded-md"
+                             x-show="!newBook.originImageId">
+                            <svg class="h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                                      stroke-linecap="round" stroke-linejoin="round"
+                                      stroke-width="2"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <input @change="handleImageUpload($event, 'originImageId')" accept="image/*" class="hidden"
+                           id="originImageUpload" type="file">
+                    <button @click="document.getElementById('originImageUpload').click()"
+                            class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                            type="button">
+                        <svg class="-ml-1 mr-2 h-5 w-5 text-gray-500" fill="none" stroke="currentColor"
+                             viewBox="0 0 24 24">
+                            <path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                                  stroke-linecap="round" stroke-linejoin="round"
+                                  stroke-width="2"/>
+                        </svg>
+                        Upload Image
+                    </button>
+                </div>
+                <!-- Add this near the upload button to show when an image is uploading -->
+                <div class="ml-2 flex items-center" x-show="isUploading">
+                    <svg class="animate-spin -ml-1 mr-2 h-5 w-5 text-blue-500" fill="none"
+                         viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+                                stroke-width="4"></circle>
+                        <path class="opacity-75"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                              fill="currentColor"></path>
+                    </svg>
+                    <span class="text-sm text-blue-500">Uploading...</span>
+                </div>
+            </div>
 
             <div class="mb-4" x-show="newBook?.id">
                 <label class="block text-sm font-medium text-gray-700">Id</label>
@@ -55,9 +98,13 @@
 
             <div class="mb-4">
                 <label class="block text-sm font-medium text-gray-700">Unique Id</label>
-                <input class="mt-1 focus:ring-blue-500 focus:border-blue-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md p-2" placeholder="Key to check uniqueness"
-                       type="text"
-                       x-model="newBook.uniqueId">
+
+                <!-- Combobox -->
+                <div th:remove="tag" th:replace="~{components/title-selector::title-selector}">
+                    <p>
+                        Here placed content of views/components/title-selector.html, tag `th:fragment="title-selector"`
+                    </p>
+                </div>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -48,6 +48,16 @@ export function utilsApp() {
       loadState(name) {
         const currValue = localStorage.getItem(name);
         this[name] = !!currValue;
+      },
+
+      changeValue(name, newValue) {
+        localStorage.setItem(name, newValue);
+        this[name] = newValue;
+      },
+
+      loadValue(name, defaultValue) {
+        const currValue = localStorage.getItem(name);
+        this[name] = currValue || defaultValue;
       }
   }
 }

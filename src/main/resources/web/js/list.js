@@ -13,6 +13,10 @@ export function listApp() {
     activePopupId: null,
     currentRequest: undefined,
 
+    initList() {
+      this.fetchBooks();
+    },
+
     setSelectedItem(bookId) {
       this.activeId = bookId;
       this.selectedBook = this.books.find(item => item.id === this.activePopupId);

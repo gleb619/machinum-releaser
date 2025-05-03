@@ -51,6 +51,11 @@ export function releaseApp() {
             });
     },
 
+    afterReleasesChanged() {
+        this.processCharts();
+        this.processReleasesForEditing();
+    },
+
     openReleaseCreateForm() {
         if(this.currentSchedule.amountOfChapters <= 1) {
             this.currentSchedule.amountOfChapters = this.releases.length > 0 ? this.releases[0].chaptersCount : 0;
@@ -72,6 +77,7 @@ export function releaseApp() {
                     if (response.ok) {
                         this.showToast('Release deleted successfully');
                         this.fetchReleases(this.selectedBook.id);
+                        this.afterReleasesChanged();
                     } else {
                         throw new Error('Failed to delete release');
                     }
@@ -110,6 +116,7 @@ export function releaseApp() {
                 this.showToast(`Release ${isUpdate ? 'updated' : 'created'} successfully`);
                 this.isReleaseFormOpen = false;
                 this.fetchReleases(this.selectedBook.id);
+                this.afterReleasesChanged();
             })
             .catch(error => {
                 this.showToast('Error: ' + error.message, true);
@@ -146,6 +153,7 @@ export function releaseApp() {
                     this.showToast(`Generated release for ${this.currentSchedule.name} successfully`);
                     this.isReleaseFormOpen = false;
                     this.fetchReleases(this.selectedBook.id);
+                    this.afterReleasesChanged();
                 } else {
                     this.showToast('Error: ' + data.message, true);
                 }

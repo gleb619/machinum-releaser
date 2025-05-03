@@ -10,6 +10,14 @@ export function chartApp() {
     },
 
     processCharts() {
+        this.targetCharts.splice(0, this.targetCharts.length);
+        this.pivotData.splice(0, this.pivotData.length);
+        this.pivotTotals = {
+            releases: 0,
+            chapters: 0,
+            executed: 0,
+            executionRate: 0
+        };
         this.processChartReleases();
         this.createPivotTable();
     },
@@ -45,11 +53,12 @@ export function chartApp() {
     },
 
     cleanCharts() {
-        this.targetCharts.forEach(chart => {
-            const canvas = document.getElementById(chart.canvasId);
+        this.targetCharts.forEach(targetChart => {
+            const canvas = document.getElementById(targetChart.canvasId);
             if (canvas) {
                 const chart = Chart.getChart(canvas);
                 if (chart) {
+                    chart.clear();
                     chart.destroy();
                 }
             }
@@ -59,6 +68,7 @@ export function chartApp() {
         if (combinedCanvas) {
             const chart = Chart.getChart(combinedCanvas);
             if (chart) {
+                chart.clear();
                 chart.destroy();
             }
         }
@@ -226,7 +236,7 @@ export function chartApp() {
             const executedChapters = chart.releasesSchedule
                 .filter(r => r.executed)
                 .reduce((sum, r) => sum + r.chapters, 0);
-            const executionRate = totalChapters > 0 ? (executedChapters / totalChapters) : 0;
+            const executionRate = chartChapters > 0 ? (executedChapters / chartChapters) : 0;
 
             // Find latest release date
             const latestRelease = chart.releasesSchedule.length > 0

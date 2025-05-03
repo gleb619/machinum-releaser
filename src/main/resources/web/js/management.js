@@ -18,6 +18,14 @@ export function managementApp() {
     },
     managementCollapsed: false,
 
+    initManagement() {
+        const releaseFilters = localStorage.getItem('releaseFilters');
+        if(!!releaseFilters) {
+            this.filters = JSON.parse(releaseFilters);
+        }
+        this.loadState('managementCollapsed');
+    },
+
     async fetchSchedule(bookId) {
         if(!bookId) {
             return;
@@ -78,6 +86,9 @@ export function managementApp() {
             weekStart.setDate(monday);
             weekEnd.setDate(sunday);
 
+            const nextWeek = new Date(today);
+            nextWeek.setDate(today.getDate() + 7);
+
             const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
             const monthEnd = new Date(today)
             monthEnd.setDate(monthStart.getDate() + 30);
@@ -87,6 +98,8 @@ export function managementApp() {
                 filtered = filtered.filter(r => new Date(r.date) == today);
             } else if (this.filters.date === 'thisWeek') {
                 filtered = filtered.filter(r => new Date(r.date) >= weekStart && new Date(r.date) <= weekEnd);
+            } else if (this.filters.date === 'nextWeek') {
+                filtered = filtered.filter(r => new Date(r.date) >= today && new Date(r.date) <= nextWeek);
             } else if (this.filters.date === 'nextMonth') {
                 filtered = filtered.filter(r => new Date(r.date) >= monthStart && new Date(r.date) <= monthEnd);
             }
@@ -141,6 +154,7 @@ export function managementApp() {
 
     // Mark release as executed
     markAsExecuted(release) {
+        if(!release) return;
         // In a real app, you would call an API to update the release
         release.executed = true;
 
@@ -196,22 +210,13 @@ export function managementApp() {
           throw new Error('Failed to execute release');
         }
 
-        this.executed = true;
+        this.markAsExecuted(release);
         this.showToast('Book execution is scheduled!');
       } catch (error) {
         console.error('Error schedule execution:', error);
         this.showToast('Error schedule execution: ' + error.message, true);
       }
     },
-
-    // Modify your init function to include the editing properties
-    initManagement() {
-        const releaseFilters = localStorage.getItem('releaseFilters');
-        if(!!releaseFilters) {
-            this.filters = JSON.parse(releaseFilters);
-        }
-        this.loadState('managementCollapsed');
-    }
 
   };
 }

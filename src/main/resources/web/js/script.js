@@ -8,6 +8,7 @@ import { editApp } from './edit.js';
 import { releaseApp } from './release.js';
 import { chartApp } from './chart.js';
 import { managementApp } from './management.js';
+import { comboboxApp } from './components/title-selector.js';
 
 /**
  * Creates the main application with combined functionality
@@ -26,6 +27,7 @@ export function app() {
                 ...Object.getOwnPropertyDescriptors(chartApp()),
                 ...Object.getOwnPropertyDescriptors(managementApp()),
                 ...Object.getOwnPropertyDescriptors(initApp()),
+                ...Object.getOwnPropertyDescriptors(comboboxApp()),
             }
         );
     } catch(e) {

@@ -85,6 +85,7 @@
                         <option value="">All Dates</option>
                         <option value="today">Today</option>
                         <option value="thisWeek">This week</option>
+                        <option value="nextWeek">Next week</option>
                         <option value="nextMonth">Next Month</option>
                     </select>
                 </div>
@@ -168,7 +169,7 @@
 
                                 <!-- Normal mode actions -->
                                 <div class="flex space-x-2" x-show="!release.editing">
-                                    <button
+                                    <button x-show="!release.executed"
                                             @click="executeRelease(release)"
                                             class="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs">
                                         Execute

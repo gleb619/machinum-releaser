@@ -66,19 +66,19 @@
         </p>
     </div>
 
-    <div x-data="{ activeTab: 'tab1' }">
+    <div x-data="{ activeTab: 'tab1' }" x-init="loadValue('activeTab', 'tab1')">
         <div class="border-b border-gray-200">
             <nav class="flex -mb-px">
                 <button
                         :class="{ 'border-blue-500 text-blue-600': activeTab === 'tab1', 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': activeTab !== 'tab1' }"
-                        @click="activeTab = 'tab1'"
+                        @click="changeValue('activeTab', 'tab1')"
                         class="whitespace-nowrap py-4 px-4 border-b-2 font-medium text-sm"
                 >
                     Release Management
                 </button>
                 <button
                         :class="{ 'border-blue-500 text-blue-600': activeTab === 'tab2', 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': activeTab !== 'tab2' }"
-                        @click="activeTab = 'tab2'"
+                        @click="changeValue('activeTab', 'tab2')"
                         class="whitespace-nowrap py-4 px-4 border-b-2 font-medium text-sm"
                 >
                     Releases
