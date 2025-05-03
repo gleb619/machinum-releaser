@@ -5,9 +5,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import machinum.book.Book;
+import machinum.image.Image;
+import machinum.telegram.TelegramClient.Response;
 
 import java.io.File;
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static machinum.telegram.TelegramMessageDSL.dsl;
 
@@ -20,7 +23,7 @@ public class TelegramService {
     private final TelegramClient client;
 
     @SneakyThrows
-    public Integer publishNewBook(Book newBook, File... images) {
+    public Response publishNewBook(Book newBook, List<Image> images) {
         log.info("Prepare to start a telegram session: {}", LocalDateTime.now());
 
         String message = dsl()
@@ -85,15 +88,16 @@ public class TelegramService {
 
         log.info("Created message: message={}", message);
 
-        Integer messageId = client.sendImagesWithMessage(message, images);
+        var response = client.sendImagesWithMessage(message, images);
 
-        log.info("Published new book: messageId={}", messageId);
+        log.info("Published new book: messageId={}", response.messageId());
 
-        return messageId;
+        return response;
     }
 
     @SneakyThrows
-    public void publishNewChapter(String chatId, String name, Integer synopsisMessageId, String channel, String chapters, String status, File document) {
+    public Response publishNewChapter(String chatId, String name, Integer synopsisMessageId, String channel,
+                                      String chapters, String status, byte[] document) {
         log.info("Prepare to start a telegram session: {}", LocalDateTime.now());
 
         String message = dsl()
@@ -122,23 +126,24 @@ public class TelegramService {
 
         log.info("Created message: message={}", message);
 
-        client.sendFileWithMessage(chatId, message, EPUB_CONTENT_TYPE, document);
+        return client.sendFileWithMessage(chatId, message, EPUB_CONTENT_TYPE, document);
     }
 
     @SneakyThrows
-    public void publishNewChapter(String name, Integer synopsisMessageId, String channel, String chapters, String status, File document) {
-        publishNewChapter(client.getDefaultChatId(), name, synopsisMessageId, channel, chapters, status, document);
+    public Response publishNewChapter(String name, Integer synopsisMessageId, String channel, String chapters,
+                                      String status, byte[] document) {
+        return publishNewChapter(client.getDefaultChatId(), name, synopsisMessageId, channel, chapters, status, document);
     }
 
     @SneakyThrows
-    public Integer publishFile(String text, String contentType, File file) {
+    public Response publishFile(String text, String contentType, byte[] file) {
         log.info("Prepare to send a file to telegram: {}", LocalDateTime.now());
 
         return client.sendFileWithMessage(text, contentType, file);
     }
 
     @SneakyThrows
-    public Integer publishFile(@NonNull String chatId, String text, String contentType, File file) {
+    public Response publishFile(@NonNull String chatId, String text, String contentType, byte[] file) {
         log.info("Prepare to send a file to telegram: {}", LocalDateTime.now());
 
         return client.sendFileWithMessage(chatId, text, contentType, file);

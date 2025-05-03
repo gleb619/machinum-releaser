@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS books (
     author VARCHAR(255),
     description TEXT,
     image_id VARCHAR(36),
+    origin_image_id VARCHAR(36),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 

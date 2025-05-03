@@ -8,6 +8,7 @@ import io.jooby.exception.StatusCodeException;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Slf4j
@@ -82,6 +83,18 @@ public class BookController {
         repository.delete(id);
 
         ctx.setResponseCode(StatusCode.OK);
+    }
+
+    @GET("/books/titles")
+    public Map<String, String> getBookTitles(Context ctx) {
+        var bookClient = ctx.require(BookRestClient.class);
+
+        // Set caching headers manually to 1 hour
+        ctx.setResponseHeader("Cache-Control", "max-age=3600");
+        ctx.setResponseHeader("Pragma", "cache");
+        ctx.setResponseHeader("Expires", "3600");
+
+        return bookClient.getAllBookTitlesCached();
     }
 
 }

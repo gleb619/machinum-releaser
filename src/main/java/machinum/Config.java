@@ -1,6 +1,7 @@
 package machinum;
 
 import ch.qos.logback.classic.Level;
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -9,8 +10,14 @@ import io.avaje.validation.Validator;
 import io.jooby.Extension;
 import io.jooby.Jooby;
 import lombok.extern.slf4j.Slf4j;
+import machinum.Util.Pair;
 import machinum.book.BookRepository;
+import machinum.book.BookRestClient;
+import machinum.cache.CacheService;
+import machinum.chapter.ChapterJsonlConverter;
 import machinum.image.ImageRepository;
+import machinum.markdown.MarkdownConverter;
+import machinum.pandoc.PandocRestClient;
 import machinum.release.ReleaseRepository;
 import machinum.release.ReleaseRepository.ReleaseTargetRepository;
 import machinum.release.ReleaseScheduleGenerator;
@@ -22,6 +29,7 @@ import machinum.telegram.TelegramService;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.generic.GenericType;
 import org.jdbi.v3.core.mapper.ColumnMapper;
+import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.qualifier.QualifiedType;
 import org.jdbi.v3.jackson2.Jackson2Plugin;
 import org.jdbi.v3.json.internal.JsonColumnMapperFactory;
@@ -31,10 +39,14 @@ import org.slf4j.LoggerFactory;
 import org.thymeleaf.TemplateEngine;
 import org.thymeleaf.templateresolver.ClassLoaderTemplateResolver;
 
+import java.net.http.HttpClient;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.Executors;
+import java.util.function.Function;
 
 import static machinum.Util.firstNonNull;
 
@@ -80,23 +92,32 @@ public class Config implements Extension {
         return (r, columnNumber, ctx) -> r.getObject(columnNumber, LocalDate.class);
     }
 
+    private static RowMapper<Pair<String, Object>> pairRowMapper() {
+        return (rs, ctx) -> Pair.of(rs.getString(1), rs.getObject(2));
+    }
+
+    private static RowMapper<Object> objectRowMapper() {
+        return (rs, ctx) -> rs.getObject(1);
+    }
+
     @Override
     public void install(@NotNull Jooby application) throws Exception {
         changeLogLevel(App.class.getPackageName(), Level.DEBUG);
 
         var registry = application.getServices();
         var config = application.getEnvironment().getConfig();
-        var objectMapper = new ObjectMapper().findAndRegisterModules()
-                .setSerializationInclusion(JsonInclude.Include.NON_NULL)
-                .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
-                .disable(SerializationFeature.FAIL_ON_EMPTY_BEANS)
-                .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+        var objectMapper = createMapper(Function.identity());
+        var objectMapperTg = createMapper(changeForTg());
+        var objectMapperRest = createMapper(Function.identity());
 
         registry.get(TemplateEngine.class).getTemplateResolvers().forEach(resolver -> {
             if (resolver instanceof ClassLoaderTemplateResolver cpResolver) {
                 cpResolver.setSuffix(".html");
             }
         });
+
+        var cache = new CacheService(Duration.of(10, ChronoUnit.MINUTES));
+        registry.putIfAbsent(CacheService.class, cache);
 
         Jdbi jdbi = registry.require(Jdbi.class);
         jdbi.registerColumnMapper(QualifiedType.of(new GenericType<List<String>>() {
@@ -107,35 +128,76 @@ public class Config implements Extension {
         }), localDateTimeMapper());
         jdbi.registerColumnMapper(QualifiedType.of(new GenericType<LocalDate>() {
         }), localDateMapper());
+        jdbi.registerRowMapper(new GenericType<Pair<String, Object>>() {
+        }, pairRowMapper());
+        jdbi.registerRowMapper(new GenericType<Object>() {
+        }, objectRowMapper());
 
         jdbi.installPlugin(new PostgresPlugin());
         jdbi.installPlugin(new Jackson2Plugin());
 
-        registry.putIfAbsent(BookRepository.class, new BookRepository(jdbi));
-        registry.putIfAbsent(ImageRepository.class, new ImageRepository(jdbi));
+        var bookRepository = new BookRepository(jdbi);
+        var imageRepository = new ImageRepository(jdbi);
+        registry.putIfAbsent(BookRepository.class, bookRepository);
+        registry.putIfAbsent(ImageRepository.class, imageRepository);
 
-        var repository = new ReleaseRepository(jdbi, objectMapper);
-        registry.putIfAbsent(ReleaseRepository.class, repository);
-        registry.putIfAbsent(ReleaseTargetRepository.class, new ReleaseTargetRepository(jdbi, objectMapper));
+        var releaseRepository = new ReleaseRepository(jdbi, objectMapper);
+        var targetRepository = new ReleaseTargetRepository(jdbi, objectMapper);
+        registry.putIfAbsent(ReleaseRepository.class, releaseRepository);
+        registry.putIfAbsent(ReleaseTargetRepository.class, targetRepository);
         registry.putIfAbsent(ReleaseScheduleGenerator.class, new ReleaseScheduleGenerator());
         registry.putIfAbsent(Validator.class, Validator.builder().build());
 
+
+        var llmUrl = config.getString("machinum-llm.url");
+        var jsonlConverter = new ChapterJsonlConverter(objectMapperRest);
+        var httpClient = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(30))
+                .build();
+        var restClient = new BookRestClient(httpClient, jsonlConverter, cache, llmUrl);
+        var markdownConverter = new MarkdownConverter();
+
+        registry.putIfAbsent(ChapterJsonlConverter.class, jsonlConverter);
+        registry.putIfAbsent(BookRestClient.class, restClient);
+        registry.putIfAbsent(MarkdownConverter.class, markdownConverter);
+
+        var pandocUrl = config.getString("pandoc.url");
+        var pandocRestClient = new PandocRestClient(httpClient, cache, pandocUrl);
+        registry.putIfAbsent(PandocRestClient.class, pandocRestClient);
+
         var token = config.getString("telegram.token");
         var chatId = config.getString("telegram.chatId");
-        var tgClient = new TelegramClient(token, chatId, objectMapper);
+        var channelName = config.getString("telegram.channelName");
+        var tgClient = new TelegramClient(token, chatId, objectMapperTg);
         var tgService = new TelegramService(tgClient);
-        var tgHandler = new TelegramHandler(tgService);
+        var tgHandler = new TelegramHandler(tgService, releaseRepository, imageRepository, restClient, markdownConverter, pandocRestClient, channelName);
         registry.putIfAbsent(TelegramClient.class, tgClient);
         registry.putIfAbsent(TelegramService.class, tgService);
 
-        var handler = new ActionsHandler(tgHandler, repository);
+        var handler = new ActionsHandler(tgHandler, releaseRepository, targetRepository, bookRepository);
         registry.putIfAbsent(ActionsHandler.class, handler);
-        registry.putIfAbsent(Scheduler.class, new Scheduler(Executors.newScheduledThreadPool(1), repository, handler));
+        registry.putIfAbsent(Scheduler.class, new Scheduler(Executors.newScheduledThreadPool(1), releaseRepository, handler));
 
         application.onStop(() -> {
             application.require(Scheduler.class).close();
             application.require(TelegramClient.class).close();
         });
+    }
+
+    private Function<ObjectMapper, ObjectMapper> changeForTg() {
+        return mapper -> mapper.setVisibility(mapper.getSerializationConfig().getDefaultVisibilityChecker()
+                .withFieldVisibility(JsonAutoDetect.Visibility.ANY)
+                .withGetterVisibility(JsonAutoDetect.Visibility.NONE)
+                .withSetterVisibility(JsonAutoDetect.Visibility.NONE)
+                .withCreatorVisibility(JsonAutoDetect.Visibility.NONE));
+    }
+
+    private ObjectMapper createMapper(Function<ObjectMapper, ObjectMapper> customizer) {
+        return customizer.apply(new ObjectMapper().findAndRegisterModules()
+                .setSerializationInclusion(JsonInclude.Include.NON_NULL)
+                .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+                .disable(SerializationFeature.FAIL_ON_EMPTY_BEANS)
+                .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES));
     }
 
 }

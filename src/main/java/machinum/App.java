@@ -21,6 +21,7 @@ import io.swagger.v3.oas.annotations.info.Info;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
 import machinum.book.BookController_;
+import machinum.cache.CacheService;
 import machinum.image.ImageController_;
 import machinum.release.ReleaseController_;
 import machinum.scheduler.Scheduler;
@@ -28,6 +29,7 @@ import org.slf4j.Logger;
 
 import java.nio.file.Paths;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import static machinum.Config.changeLogLevel;
 
@@ -94,8 +96,15 @@ public class App extends Jooby {
         AssetSource web = AssetSource.create(Paths.get("src/main/resources/web"));
         assets("/?*", new AssetHandler("index.html", web));
 
-        onStarted(() -> require(Scheduler.class).init());
-        onStop(() -> require(Scheduler.class).close());
+        onStarted(() -> {
+            require(Scheduler.class).init();
+            require(CacheService.class)
+                    .scheduleCleanup(1, TimeUnit.HOURS);
+        });
+        onStop(() -> {
+            require(Scheduler.class).close();
+            require(CacheService.class).close();
+        });
     }
 
     public static void main(final String[] args) {

@@ -13,6 +13,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+import static machinum.Util.typedParse;
+
 @Slf4j
 @RequiredArgsConstructor
 public class ReleaseRepository {
@@ -128,7 +130,6 @@ public class ReleaseRepository {
                 .execute() > 0);
     }
 
-
     public int findReleasePosition(String releaseId) {
         return jdbi.withHandle(handle -> handle.createQuery("""
                                 WITH data AS ( 
@@ -161,12 +162,49 @@ public class ReleaseRepository {
                 .one());
     }
 
+    public <T> T findSingleMetadata(String releaseTargetId, String key) {
+        var list = findMetadata(releaseTargetId, key);
+        if (!list.isEmpty()) {
+            var first = list.get(0);
+            if (first instanceof String s) {
+                return (T) typedParse(s);
+            } else {
+                return (T) first;
+            }
+        }
+
+        return null;
+    }
+
+    public List<Object> findMetadata(String releaseTargetId, String key) {
+        return jdbi.withHandle(handle -> handle.createQuery("""
+                                SELECT
+                                    j0.value
+                                FROM
+                                    releases r0,
+                                    LATERAL json_each_text(r0.metadata) j0
+                                WHERE
+                                    r0.release_target_id = :releaseTargetId
+                                    AND j0.key = :key
+                                ORDER BY r0."date" DESC
+                        """)
+                .bind("releaseTargetId", releaseTargetId)
+                .bind("key", key)
+                .mapTo(Object.class)
+                .list());
+    }
+
     @Slf4j
     @RequiredArgsConstructor
     public static class ReleaseTargetRepository {
 
         private final Jdbi jdbi;
         private final ObjectMapper mapper;
+
+        public ReleaseTarget getById(String id) {
+            return findById(id)
+                    .orElseThrow(() -> new IllegalStateException("ReleaseTarget for given id is not found: " + id));
+        }
 
         public Optional<ReleaseTarget> findById(String id) {
             return jdbi.withHandle(handle -> handle.createQuery("SELECT * FROM release_targets WHERE id = :id")

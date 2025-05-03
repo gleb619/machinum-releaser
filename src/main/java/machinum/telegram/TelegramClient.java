@@ -1,5 +1,6 @@
 package machinum.telegram;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pengrad.telegrambot.TelegramBot;
 import com.pengrad.telegrambot.model.Message;
@@ -9,17 +10,19 @@ import com.pengrad.telegrambot.request.SendMediaGroup;
 import com.pengrad.telegrambot.request.SendMessage;
 import com.pengrad.telegrambot.response.MessagesResponse;
 import com.pengrad.telegrambot.response.SendResponse;
-import lombok.Getter;
-import lombok.NonNull;
-import lombok.SneakyThrows;
+import lombok.*;
 import lombok.extern.slf4j.Slf4j;
+import machinum.image.Image;
+import machinum.image.TriangleWrapper;
+import net.coobird.thumbnailator.Thumbnails;
 
 import java.io.File;
-import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 @Slf4j
 public class TelegramClient implements AutoCloseable {
@@ -47,14 +50,15 @@ public class TelegramClient implements AutoCloseable {
     }
 
     @SneakyThrows
-    public Integer sendFileWithMessage(@NonNull String messageText, @NonNull String contentType, @NonNull File document) {
+    public Response sendFileWithMessage(@NonNull String messageText, @NonNull String contentType, @NonNull byte[] document) {
         return sendFileWithMessage(defaultChatId, messageText, contentType, document);
     }
 
     @SneakyThrows
-    public Integer sendFileWithMessage(@NonNull String chatId, @NonNull String messageText, @NonNull String contentType, @NonNull File document) {
-        if (!document.exists()) {
-            throw new IllegalArgumentException("File doesn't exists: %s".formatted(document.getName()));
+    public Response sendFileWithMessage(@NonNull String chatId, @NonNull String messageText,
+                                        @NonNull String contentType, byte[] document) {
+        if (document.length <= 0) {
+            throw new IllegalArgumentException("File doesn't exists");
         }
 
         SendDocument request = new SendDocument(chatId, document).contentType(contentType)
@@ -62,24 +66,16 @@ public class TelegramClient implements AutoCloseable {
                 .parseMode(ParseMode.HTML)
                 .allowSendingWithoutReply(false);
 
-        SendResponse response = null;
-        try {
-            response = bot.execute(request);
-        } catch (Exception e) {
-            log.error("ERROR: ", e);
-        }
+        var response = bot.execute(request);
 
-        if (Objects.nonNull(response) && !response.isOk()) {
+        if (!response.isOk()) {
             log.error("Found mistake: code={}, description={}", response.errorCode(), response.description());
             throw new IllegalStateException("Error occurred: %s".formatted(objectMapper.writeValueAsString(response)));
-        } else if (Objects.nonNull(response)) {
-            log.info("Got success response: id={}, message={}", response.message().messageId(), response.message());
-        }
-
-        if (Objects.nonNull(response)) {
-            return response.message().messageId();
         } else {
-            return -1;
+            log.info("Got success response: id={}, message={}", response.message().messageId(), response.message());
+            var jsonNode = objectMapper.valueToTree(response);
+
+            return Response.of(response.message().messageId(), jsonNode);
         }
     }
 
@@ -142,72 +138,64 @@ public class TelegramClient implements AutoCloseable {
     }
 
     @SneakyThrows
-    public Integer sendImagesWithMessage(@NonNull String messageText, @NonNull File... images) {
+    public Response sendImagesWithMessage(@NonNull String messageText, @NonNull List<Image> images) {
         return sendImagesWithMessage(defaultChatId, messageText, images);
     }
 
     @SneakyThrows
-    public Integer sendImagesWithMessage(@NonNull String chatId, @NonNull String messageText, @NonNull File... images) {
+    public Response sendImagesWithMessage(@NonNull String chatId, @NonNull String messageText, @NonNull List<Image> images) {
         List<InputMediaPhoto> media = new ArrayList<>();
+        List<File> toDelete = new ArrayList<>();
 
-        for (File image : images) {
-            if (!image.exists()) {
+        for (int i = 0; i < images.size(); i++) {
+            var image = images.get(i);
+            if (Objects.isNull(image.getData()) || image.getData().length == 0) {
                 throw new IllegalArgumentException("File doesn't exists: %s".formatted(image.getName()));
             }
 
-            boolean isLast = media.size() == images.length - 2;
-            String contentType = Files.probeContentType(image.toPath());
-            //TODO fix images
-//            File tempImage = TriangleWrapper.triangleThumbnail(image);
-//            File thumbnail = File.createTempFile("machinum", "_thumb.jpg");
-//            Thumbnails.of(tempImage)
-//                    .scale(0.25)
-//                    .outputFormat("jpg")
-//                    .toFile(thumbnail);
-//
-//            tempImage.deleteOnExit();
-//            thumbnail.deleteOnExit();
-//
-//            if(isLast) {
-//                InputMediaPhoto cover = new InputMediaPhoto(image)
-//                        .thumbnail(thumbnail)
-//                        .contentType(contentType)
-//                        .caption(messageText)
-//                        .parseMode(ParseMode.HTML);
-//                media.add(cover);
-//            } else {
-//                InputMediaPhoto cover = new InputMediaPhoto(image)
-//                        .thumbnail(thumbnail)
-//                        .contentType(contentType)
-//                        .hasSpoiler(true);
-//                media.add(cover);
-//            }
-        }
+            boolean isLast = (i >= images.size() - 1);
+            String contentType = image.getContentType();
+            var tempImage = TriangleWrapper.addTriangleEffect(image);
+            Thumbnails.of(tempImage)
+                    .scale(0.25)
+                    .outputFormat("jpg")
+                    .toFile(tempImage);
 
-        SendMediaGroup request = new SendMediaGroup(chatId, media.toArray(InputMediaPhoto[]::new))
-                .allowSendingWithoutReply(false);
+            toDelete.add(tempImage);
 
-        MessagesResponse response = null;
-        try {
-            response = bot.execute(request);
-        } catch (Exception e) {
-            log.error("ERROR: ", e);
-        }
+            var cover = new InputMediaPhoto(image.getData())
+                    .thumbnail(tempImage)
+                    .contentType(contentType);
 
-        if (Objects.nonNull(response) && !response.isOk()) {
-            log.error("Found mistake: code={}, description={}", response.errorCode(), response.description());
-            throw new IllegalStateException("Error occurred: %s".formatted(objectMapper.writeValueAsString(response)));
-        } else if (Objects.nonNull(response)) {
-            Message[] messages = response.messages();
-            for (Message message : messages) {
-                log.info("Got success response: id={}, message={}", message.messageId(), message);
+            if (isLast) {
+                cover.hasSpoiler(true)
+                        .caption(messageText)
+                        .parseMode(ParseMode.HTML);
             }
+
+            media.add(cover);
         }
 
-        if (response.messages().length > 0) {
-            return response.messages()[0].messageId();
-        } else {
-            return null;
+        try {
+            SendMediaGroup request = new SendMediaGroup(chatId, media.toArray(InputMediaPhoto[]::new))
+                    .allowSendingWithoutReply(false);
+
+            var response = bot.execute(request);
+
+            if (!response.isOk()) {
+                log.error("Found mistake: code={}, description={}", response.errorCode(), response.description());
+                throw new IllegalStateException("Error occurred: %s".formatted(objectMapper.writeValueAsString(response)));
+            } else {
+                var jsonNode = objectMapper.valueToTree(response);
+                var messageIds = Stream.of(response.messages()).map(Message::messageId).collect(Collectors.toList());
+
+                return Response.of(messageIds, jsonNode);
+            }
+        } catch (Exception e) {
+            log.error("Error executing send media group request: ", e);
+            throw new IllegalStateException("Failed to execute send media group request", e);
+        } finally {
+            toDelete.forEach(File::delete);
         }
     }
 
@@ -248,6 +236,40 @@ public class TelegramClient implements AutoCloseable {
     @Override
     public void close() throws Exception {
         bot.shutdown();
+    }
+
+    @Value
+    @AllArgsConstructor
+    @Builder(toBuilder = true)
+    public static class Response {
+
+        List<Integer> messageIds;
+
+        JsonNode payload;
+
+        public static Response of(Integer messageId) {
+            return of(messageId, null);
+        }
+
+        public static Response of(Integer messageId, JsonNode jsonNode) {
+            return of(List.of(messageId), jsonNode);
+        }
+
+        public static Response of(List<Integer> messageId, JsonNode jsonNode) {
+            return Response.builder()
+                    .messageIds(messageId)
+                    .payload(jsonNode)
+                    .build();
+        }
+
+        public Integer messageId() {
+            if (!getMessageIds().isEmpty()) {
+                return getMessageIds().get(getMessageIds().size() - 1);
+            }
+
+            return -1;
+        }
+
     }
 
 }

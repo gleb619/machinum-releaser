@@ -32,6 +32,11 @@ public class BookRepository {
         }
     }
 
+    public Book getById(String id) {
+        return findById(id)
+                .orElseThrow(() -> new IllegalStateException("Book for given id is not found: " + id));
+    }
+
     public Optional<Book> findById(String id) {
         return jdbi.withHandle(handle -> handle.createQuery("SELECT * FROM books WHERE id = :id")
                 .bind("id", id)
@@ -55,9 +60,9 @@ public class BookRepository {
     public String create(Book book) {
         return jdbi.withHandle(handle -> handle.createUpdate("""
                             INSERT INTO books (
-                                unique_id, ru_name, en_name, origin_name, link, link_text, type, genre, tags, year, chapters, author, description, schedule_id, tg_id
+                                unique_id, ru_name, en_name, origin_name, link, link_text, type, genre, tags, year, chapters, author, description
                             ) VALUES (
-                                :uniqueId, :ruName, :enName, :originName, :link, :linkText, :type, :genreString, :tagsString, :year, :chapters, :author, :description, :scheduleId, :tgId
+                                :uniqueId, :ruName, :enName, :originName, :link, :linkText, :type, :genreString, :tagsString, :year, :chapters, :author, :description
                             ) RETURNING id
                         """)
                 .bind("genreString", getGenreString(book))
@@ -71,6 +76,7 @@ public class BookRepository {
     public boolean update(String id, Book book) {
         return jdbi.withHandle(handle -> handle.createUpdate("""
                             UPDATE books SET
+                                unique_id = :uniqueId,
                                 ru_name = :ruName,
                                 en_name = :enName,
                                 origin_name = :originName,
@@ -84,8 +90,7 @@ public class BookRepository {
                                 author = :author,
                                 description = :description,
                                 image_id = :imageId,
-                                schedule_id = :scheduleId,
-                                tg_id = :tgId,
+                                origin_image_id = :originImageId,
                                 updated_at = :updatedAtTime
                             WHERE id = :id
                         """)

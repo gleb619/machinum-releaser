@@ -3,13 +3,18 @@ package machinum.release;
 import com.fasterxml.jackson.annotation.JsonUnwrapped;
 import jakarta.validation.Valid;
 import lombok.*;
+import machinum.Util.Pair;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
+
+import static machinum.Util.toPair;
+import static machinum.release.Release.ReleaseConstants.PAGES_PARAM;
 
 @Valid
 @Data
@@ -43,6 +48,19 @@ public class Release {
 
     public boolean hasMetadata(String key, String value) {
         return hasMetadata(key) && Objects.equals(metadata(key), value);
+    }
+
+    public Release addMetadata(String key, Object value) {
+        metadata.put(key, value);
+        return this;
+    }
+
+    public Pair<Integer, Integer> toPageRequest() {
+        String pages = metadata(PAGES_PARAM);
+
+        return Arrays.stream(pages.split("-"))
+                .map(Integer::parseInt)
+                .collect(toPair());
     }
 
     public Release copy(Function<ReleaseBuilder, ReleaseBuilder> action) {
@@ -83,6 +101,13 @@ public class Release {
         private int releasesDays;
         @Builder.Default
         private LocalDate nextRelease = LocalDate.now();
+
+    }
+
+    @NoArgsConstructor(access = AccessLevel.PRIVATE)
+    public static class ReleaseConstants {
+
+        public static final String PAGES_PARAM = "pages";
 
     }
 
