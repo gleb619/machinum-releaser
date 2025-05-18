@@ -79,6 +79,7 @@
                 </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200">
+                <template x-if="books.length > 0">
                 <template :key="book.id" x-for="book in books">
                     <tr :class="{ 'bg-blue-50': activeId === book.id }"
                         @click="setSelectedItem(book.id)"
@@ -105,13 +106,16 @@
                         </td>
                     </tr>
                 </template>
-                <tr x-show="books.length === 0 && !isLoading">
-                    <td class="px-6 py-4 text-center text-sm text-gray-500" colspan="6">
-                        No books found. Try adjusting your search criteria.
-                    </td>
-                </tr>
+                </template>
+                <template x-if="books.length === 0 && !isLoading">
+                    <tr x-show="books.length === 0 && !isLoading">
+                        <td class="px-6 py-4 text-center text-sm text-gray-500" colspan="7">
+                            No books found. Try adjusting your search criteria.
+                        </td>
+                    </tr>
+                </template>
                 <tr x-show="isLoading">
-                    <td class="px-6 py-4 text-center text-sm text-gray-500" colspan="6">
+                    <td class="px-6 py-4 text-center text-sm text-gray-500" colspan="7">
                         Loading books...
                     </td>
                 </tr>

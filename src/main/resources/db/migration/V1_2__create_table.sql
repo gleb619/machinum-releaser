@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS images (
 
 CREATE TABLE IF NOT EXISTS books (
     id VARCHAR(36) PRIMARY KEY DEFAULT gen_random_uuid(),
-    unique_id UNIQUE VARCHAR(255) NOT NULL,
+    unique_id VARCHAR(255) NOT NULL,
     ru_name VARCHAR(255),
     en_name VARCHAR(255),
     origin_name VARCHAR(255),
@@ -32,6 +32,8 @@ CREATE TABLE IF NOT EXISTS books (
         REFERENCES images(id)
         ON DELETE CASCADE
 );
+
+ALTER TABLE books ADD CONSTRAINT books_uq UNIQUE (unique_id);
 
 CREATE OR REPLACE FUNCTION delete_associated_images()
  RETURNS TRIGGER AS $$

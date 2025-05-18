@@ -6,7 +6,8 @@
         </encoder>
     </appender>
 
-    <logger name="machinum" level="DEBUG"/>
+    <logger name="machinum" level="${APP_LOG_LEVEL:-DEBUG}"/>
+    <logger name="io.jooby" level="${WEB_LOG_LEVEL:-INFO}"/>
 
     <root level="INFO">
         <appender-ref ref="STDOUT"/>

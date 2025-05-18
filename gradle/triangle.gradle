@@ -18,7 +18,7 @@ task downloadTriangle {
             // Download the archive
             println "[downloadTriangle] Downloading ${archiveName}..."
 
-            def ant = new AntBuilder()
+            def ant = new groovy.util.AntBuilder()
 
             ant.get(src: url, dest: archive, skipexisting: true)
 

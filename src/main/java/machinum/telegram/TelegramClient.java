@@ -36,7 +36,7 @@ public class TelegramClient implements AutoCloseable {
         this.bot = new TelegramBot(token);
         this.defaultChatId = chatId;
         this.objectMapper = objectMapper;
-        log.info("Started telegram session");
+        log.debug("Started telegram session");
     }
 
     @SneakyThrows

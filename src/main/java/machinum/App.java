@@ -7,7 +7,7 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import io.jooby.Jooby;
 import io.jooby.MapModelAndView;
 import io.jooby.OpenAPIModule;
-import io.jooby.ServerOptions;
+import io.jooby.flyway.FlywayModule;
 import io.jooby.handler.AccessLogHandler;
 import io.jooby.handler.AssetHandler;
 import io.jooby.handler.AssetSource;
@@ -56,14 +56,10 @@ public class App extends Jooby {
                 .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)));
         install(new OpenAPIModule());
         install(new HikariModule());
-//    install(new FlywayModule());
+        install(new FlywayModule());
         install(new JdbiModule());
 
         use(new AccessLogHandler());
-
-        setServerOptions(new ServerOptions()
-                .setPort(getConfig().getInt("server.port"))
-        );
 
         error((ctx, cause, statusCode) -> {
             // Log the error
