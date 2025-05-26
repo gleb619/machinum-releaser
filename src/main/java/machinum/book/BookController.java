@@ -6,9 +6,9 @@ import io.jooby.StatusCode;
 import io.jooby.annotation.*;
 import io.jooby.exception.StatusCodeException;
 import lombok.extern.slf4j.Slf4j;
+import machinum.book.BookRestClient.BookExportResult;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 @Slf4j
@@ -21,7 +21,7 @@ public class BookController {
                                 @QueryParam("size") Integer sizeParam,
                                 Context ctx) {
         var query = Optional.ofNullable(queryParam).orElse("");
-        var page = Optional.ofNullable(pageParam).orElse(1);
+        var page = Optional.ofNullable(pageParam).orElse(0);
         var size = Optional.ofNullable(sizeParam).orElse(10);
 
         var repository = ctx.require(BookRepository.class);
@@ -86,7 +86,7 @@ public class BookController {
     }
 
     @GET("/books/titles")
-    public Map<String, String> getBookTitles(Context ctx) {
+    public List<BookExportResult> getBookTitles(Context ctx) {
         var bookClient = ctx.require(BookRestClient.class);
 
         // Set caching headers manually to 1 hour

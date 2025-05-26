@@ -3,9 +3,9 @@ export function listApp() {
     books: [],
     searchQuery: '',
     selectedBook: null,
-    currentPage: 1,
+    currentPage: 0,
     pageSize: 10,
-    totalItems: 0,
+    totalElements: 0,
     totalPages: 0,
     isLoading: true,
     errorMessage: '',
@@ -46,9 +46,9 @@ export function listApp() {
         }
   
         // Get pagination headers
-        this.totalItems = parseInt(response.headers.get('X-Total-Items') || '0');
+        this.totalElements = parseInt(response.headers.get('X-Total-Items') || '0');
         this.totalPages = parseInt(response.headers.get('X-Total-Pages') || '0');
-        this.currentPage = parseInt(response.headers.get('X-Current-Page') || '1');
+        this.currentPage = parseInt(response.headers.get('X-Current-Page') || '0');
         this.pageSize = parseInt(response.headers.get('X-Page-Size') || '10');
   
         const data = await response.json();
@@ -73,36 +73,9 @@ export function listApp() {
         }
     },
 
-    searchDebounce() {
-        if(this.currentRequest) {
-            this.currentRequest.cancel();
-            this.currentRequest = undefined;
-        }
-
-        this.currentRequest = this.debounce(() => {
-            this.search();
-        }, 500);
-
-        this.currentRequest();
-    },
-
     search() {
-      this.currentPage = 1;
+      this.currentPage = 0;
       this.fetchBooks();
-    },
-  
-    prevPage() {
-      if (this.currentPage > 1) {
-        this.currentPage--;
-        this.fetchBooks();
-      }
-    },
-  
-    nextPage() {
-      if (this.currentPage < this.totalPages) {
-        this.currentPage++;
-        this.fetchBooks();
-      }
     },
   
     goToPage(page) {
@@ -110,24 +83,6 @@ export function listApp() {
       this.fetchBooks();
     },
   
-    get paginationPages() {
-      const rangeSize = 5;
-      const pages = [];
-  
-      let start = Math.max(1, this.currentPage - Math.floor(rangeSize / 2));
-      let end = Math.min(this.totalPages, start + rangeSize - 1);
-  
-      if (end - start + 1 < rangeSize) {
-        start = Math.max(1, end - rangeSize + 1);
-      }
-  
-      for (let i = start; i <= end; i++) {
-        pages.push(i);
-      }
-  
-      return pages;
-    },
-
     // Add these methods
     toggleDropdown(id) {
         this.activePopupId = this.activePopupId === id ? null : id;

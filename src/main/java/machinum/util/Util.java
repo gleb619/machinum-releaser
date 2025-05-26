@@ -1,7 +1,8 @@
-package machinum;
+package machinum.util;
 
-import lombok.*;
-import lombok.experimental.Accessors;
+import lombok.AccessLevel;
+import lombok.NoArgsConstructor;
+import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.*;
@@ -161,70 +162,19 @@ public class Util {
         return value;
     }
 
-    /* ============= */
+    public static boolean hasCause(@NonNull Throwable rootCause, @NonNull Class<?> clazz) {
+        var throwable = rootCause;
+        int depth = 0;
 
-    @FunctionalInterface
-    public interface CheckedSupplier<T> {
-
-        static <U> Supplier<U> checked(CheckedSupplier<U> supplier) {
-            return () -> {
-                try {
-                    return supplier.get();
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
-            };
+        while (throwable != null && depth < 20) {
+            if (clazz.isInstance(throwable)) {
+                return true;
+            }
+            throwable = throwable.getCause();
+            depth++;
         }
 
-        T get() throws Exception;
-
-        @SneakyThrows
-        default T resolve() {
-            return get();
-        }
-
-    }
-
-    @FunctionalInterface
-    public interface Try<T, R> {
-
-        static <I, U> Function<I, U> of(Try<I, U> aTry) {
-            return i -> {
-                try {
-                    return aTry.apply(i);
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
-            };
-        }
-
-        R apply(T t) throws Exception;
-
-    }
-
-    @Value
-    @Builder
-    @Accessors(fluent = true, chain = true)
-    public static class Pair<T1, T2> {
-
-        T1 first;
-        T2 second;
-
-        public static <K, V> Pair<K, V> of(K key, V value) {
-            return Pair.<K, V>builder()
-                    .first(key)
-                    .second(value)
-                    .build();
-        }
-
-        public T1 getKey() {
-            return first;
-        }
-
-        public T2 getValue() {
-            return second;
-        }
-
+        return false;
     }
 
 }

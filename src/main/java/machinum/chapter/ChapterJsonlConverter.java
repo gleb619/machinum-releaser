@@ -3,9 +3,11 @@ package machinum.chapter;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Getter;
+import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import machinum.exception.AppException;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -19,13 +21,20 @@ public class ChapterJsonlConverter {
     private final ObjectMapper objectMapper;
 
     @SneakyThrows
-    public List<Chapter> fromString(String source) {
+    public List<Chapter> fromString(@NonNull String source) {
+        if (source.isEmpty()) {
+            throw new AppException("Chapters content is missing");
+        }
         var jsonObjects = new ArrayList<Chapter>();
         var lines = source.split("\\r?\\n");
 
         for (var line : lines) {
-            var object = objectMapper.readValue(line, Chapter.class);
-            jsonObjects.add(object);
+            try {
+                var object = objectMapper.readValue(line, Chapter.class);
+                jsonObjects.add(object);
+            } catch (Exception e) {
+                log.error("Can't read object: {}", line);
+            }
         }
 
         return jsonObjects;

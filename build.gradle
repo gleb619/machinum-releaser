@@ -26,7 +26,7 @@ plugins {
 group "machinum"
 version "1.0.0"
 mainClassName = "machinum.App"
-sourceCompatibility = 17
+sourceCompatibility = 21
 
 repositories {
     mavenLocal()
@@ -51,7 +51,6 @@ dependencyManagement {
 
 dependencies {
     // jooby
-    annotationProcessor "io.jooby:jooby-apt"
     implementation "io.jooby:jooby-jetty"
     implementation "io.jooby:jooby-logback"
     implementation "io.jooby:jooby-jackson"
@@ -83,6 +82,8 @@ dependencies {
     // misc
     compileOnly "org.projectlombok:lombok:$lombokVersion"
     annotationProcessor "org.projectlombok:lombok:$lombokVersion"
+
+    annotationProcessor "io.jooby:jooby-apt"
 
     implementation 'io.avaje:avaje-validator:2.9'
     annotationProcessor 'io.avaje:avaje-validator-generator:2.9'

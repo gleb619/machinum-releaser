@@ -10,7 +10,7 @@ public class UnitTest {
     @Test
     public void welcome() {
         var controller = new BookController();
-        assertEquals("Welcome to Jooby!", controller.booksList("", 1, 10, null));
+        assertEquals("Welcome to Jooby!", controller.booksList("", 0, 10, null));
     }
 
 }

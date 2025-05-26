@@ -3,6 +3,7 @@ CREATE TABLE IF NOT EXISTS images (
     name VARCHAR(255) NOT NULL,
     content_type VARCHAR(100) NOT NULL,
     data BYTEA NOT NULL,
+    cover_id VARCHAR(36),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -15,8 +16,8 @@ CREATE TABLE IF NOT EXISTS books (
     link VARCHAR(255),
     link_text VARCHAR(255),
     type VARCHAR(255),
-    genre VARCHAR(255),
-    tags VARCHAR(255),
+    genre TEXT,
+    tags TEXT,
     year INT,
     chapters INT,
     author VARCHAR(255),

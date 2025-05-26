@@ -10,11 +10,11 @@ import io.avaje.validation.Validator;
 import io.jooby.Extension;
 import io.jooby.Jooby;
 import lombok.extern.slf4j.Slf4j;
-import machinum.Util.Pair;
 import machinum.book.BookRepository;
 import machinum.book.BookRestClient;
 import machinum.cache.CacheService;
 import machinum.chapter.ChapterJsonlConverter;
+import machinum.image.CoverService;
 import machinum.image.ImageRepository;
 import machinum.markdown.MarkdownConverter;
 import machinum.pandoc.PandocRestClient;
@@ -26,6 +26,7 @@ import machinum.scheduler.Scheduler;
 import machinum.telegram.TelegramClient;
 import machinum.telegram.TelegramHandler;
 import machinum.telegram.TelegramService;
+import machinum.util.Pair;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.generic.GenericType;
 import org.jdbi.v3.core.mapper.ColumnMapper;
@@ -48,7 +49,7 @@ import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.function.Function;
 
-import static machinum.Util.firstNonNull;
+import static machinum.util.Util.firstNonNull;
 
 @Slf4j
 public class Config implements Extension {
@@ -177,6 +178,8 @@ public class Config implements Extension {
         var handler = new ActionsHandler(tgHandler, releaseRepository, targetRepository, bookRepository);
         registry.putIfAbsent(ActionsHandler.class, handler);
         registry.putIfAbsent(Scheduler.class, new Scheduler(Executors.newScheduledThreadPool(1), releaseRepository, handler));
+
+        registry.putIfAbsent(CoverService.class, new CoverService());
 
         application.onStop(() -> {
             application.require(Scheduler.class).close();

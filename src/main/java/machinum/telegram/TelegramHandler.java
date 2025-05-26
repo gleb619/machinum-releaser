@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import machinum.book.Book;
 import machinum.book.BookRestClient;
+import machinum.exception.AppException;
 import machinum.image.ImageRepository;
 import machinum.markdown.MarkdownConverter;
 import machinum.pandoc.PandocRestClient;
@@ -14,9 +15,10 @@ import machinum.scheduler.ActionHandler;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
+import java.util.regex.Pattern;
 
-import static machinum.Util.getKeyByValue;
 import static machinum.pandoc.PandocRestClient.PandocRequest.createNew;
 import static machinum.release.Release.ReleaseConstants.PAGES_PARAM;
 import static machinum.telegram.TelegramHandler.TelegramConstants.TELEGRAM_BOOK_ID;
@@ -118,11 +120,13 @@ public class TelegramHandler implements ActionHandler {
         ));
 
         if (Objects.nonNull(epubBytes) && epubBytes.length > 0) {
+            String fileName = NameUtil.toSnakeCase(book.getEnName()) + ".epub";
             var response = telegramService.publishNewChapter(book.getRuName(),
                     tgBookId,
                     channelName,
                     chapters,
                     status,
+                    fileName,
                     epubBytes);
             context.set(TELEGRAM_CHAPTER_ID, response.messageId());
 
@@ -133,9 +137,12 @@ public class TelegramHandler implements ActionHandler {
     }
 
     private String getRemoteBookId(Book book) {
-        var result = getKeyByValue(bookRestClient.getAllBookTitlesCached(), book.getUniqueId());
-
-        return Objects.requireNonNull(result, "Can't find remote book for given title: %s".formatted(book.getUniqueId()));
+        var list = bookRestClient.getAllBookTitlesCached();
+        return list.stream()
+                .filter(dto -> Objects.equals(dto.title(), book.getUniqueId()))
+                .findFirst()
+                .orElseThrow(() -> new AppException("Can't find remote book for given title: %s", book.getUniqueId()))
+                .id();
     }
 
     /* ============= */
@@ -150,6 +157,27 @@ public class TelegramHandler implements ActionHandler {
 
         public static final String TELEGRAM_CHAPTER_ID = "tgChapterId";
 
+    }
+
+    @NoArgsConstructor(access = AccessLevel.PRIVATE)
+    public static class NameUtil {
+
+        private static final Pattern ARTICLES = Pattern.compile("\\b(a|an|the)\\b\\s+", Pattern.CASE_INSENSITIVE);
+        private static final Pattern CAMEL_CASE_REGEX = Pattern.compile("(?<=[a-z])(?=[A-Z])");
+        private static final Pattern NON_ALPHANUMERIC_REGEX = Pattern.compile("[^a-zA-Z0-9\\s]+");
+        private static final Pattern WHITESPACE_REGEX = Pattern.compile("\\s+");
+
+        public static String toSnakeCase(String input) {
+            if (input == null || input.isEmpty()) {
+                return input;
+            }
+
+            String withoutArticles = ARTICLES.matcher(input).replaceAll("");
+            String withoutNonAlphanumeric = NON_ALPHANUMERIC_REGEX.matcher(withoutArticles).replaceAll("");
+            String withSpacesBetweenCamelCase = CAMEL_CASE_REGEX.matcher(withoutNonAlphanumeric).replaceAll(" ");
+            String lowerCaseWithSpaces = withSpacesBetweenCamelCase.toLowerCase(Locale.ENGLISH);
+            return WHITESPACE_REGEX.matcher(lowerCaseWithSpaces).replaceAll("_");
+        }
     }
 
 }

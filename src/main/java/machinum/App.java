@@ -8,7 +8,6 @@ import io.jooby.Jooby;
 import io.jooby.MapModelAndView;
 import io.jooby.OpenAPIModule;
 import io.jooby.flyway.FlywayModule;
-import io.jooby.handler.AccessLogHandler;
 import io.jooby.handler.AssetHandler;
 import io.jooby.handler.AssetSource;
 import io.jooby.hikari.HikariModule;
@@ -22,7 +21,10 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
 import machinum.book.BookController_;
 import machinum.cache.CacheService;
+import machinum.exception.AppException;
+import machinum.image.CoverService;
 import machinum.image.ImageController_;
+import machinum.image.ImageRepository;
 import machinum.release.ReleaseController_;
 import machinum.scheduler.Scheduler;
 import org.slf4j.Logger;
@@ -32,6 +34,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static machinum.Config.changeLogLevel;
+import static machinum.util.Util.hasCause;
 
 @Slf4j
 @OpenAPIDefinition(info =
@@ -59,16 +62,17 @@ public class App extends Jooby {
         install(new FlywayModule());
         install(new JdbiModule());
 
-        use(new AccessLogHandler());
+//        use(new AccessLogHandler());
 
         error((ctx, cause, statusCode) -> {
             // Log the error
             log.error("ERROR: path=%s, status=%s, message=%s".formatted(ctx.path(), ctx.getResponseCode(), cause.getMessage()), cause);
             ctx.setResponseCode(statusCode);
             ctx.setResponseHeader("Content-Type", "application/json");
+            var message = hasCause(cause, AppException.class) ? cause.getMessage() : "An unexpected error occurred, please check logs";
             ctx.render(Map.of(
                     "success", Boolean.FALSE,
-                    "message", cause.getMessage()
+                    "message", message
             ));
         });
 
@@ -84,7 +88,7 @@ public class App extends Jooby {
 
         install(new Config());
         mvc(new BookController_());
-        mvc(new ImageController_());
+        mvc(new ImageController_(require(ImageRepository.class), require(CoverService.class)));
         mvc(new ReleaseController_());
 
         get("/", ctx -> new MapModelAndView("index.html", Map.of()));

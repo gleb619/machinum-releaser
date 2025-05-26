@@ -12,8 +12,8 @@ import java.time.LocalDate;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-import static machinum.Util.firstNonNull;
-import static machinum.Util.runAsync;
+import static machinum.util.Util.firstNonNull;
+import static machinum.util.Util.runAsync;
 
 @Slf4j
 @RequiredArgsConstructor

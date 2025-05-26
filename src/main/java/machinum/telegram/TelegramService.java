@@ -57,10 +57,10 @@ public class TelegramService {
                 .customEmoji("\uD83D\uDCD6")
                 .bold(" Жанры: ")
                 .tags(newBook.getGenre())
-                .newLine()
-                .customEmoji("#")
-                .bold(" Теги: ")
-                .tags(newBook.getTags())
+//                .newLine()
+//                .customEmoji("#")
+//                .bold(" Теги: ")
+//                .tags(newBook.getTags())
                 .newLine()
                 .customEmoji("\uD83D\uDCC6")
                 .bold(" Год публикации: ")
@@ -97,7 +97,7 @@ public class TelegramService {
 
     @SneakyThrows
     public Response publishNewChapter(String chatId, String name, Integer synopsisMessageId, String channel,
-                                      String chapters, String status, byte[] document) {
+                                      String chapters, String status, String fileName, byte[] document) {
         log.info("Prepare to start a telegram session: {}", LocalDateTime.now());
 
         String message = dsl()
@@ -126,27 +126,27 @@ public class TelegramService {
 
         log.info("Created message: message={}", message);
 
-        return client.sendFileWithMessage(chatId, message, EPUB_CONTENT_TYPE, document);
+        return client.sendFileWithMessage(chatId, message, EPUB_CONTENT_TYPE, fileName, document);
     }
 
     @SneakyThrows
     public Response publishNewChapter(String name, Integer synopsisMessageId, String channel, String chapters,
-                                      String status, byte[] document) {
-        return publishNewChapter(client.getDefaultChatId(), name, synopsisMessageId, channel, chapters, status, document);
+                                      String status, String fileName, byte[] document) {
+        return publishNewChapter(client.getDefaultChatId(), name, synopsisMessageId, channel, chapters, status, fileName, document);
     }
 
     @SneakyThrows
-    public Response publishFile(String text, String contentType, byte[] file) {
+    public Response publishFile(String text, String contentType, String fileName, byte[] file) {
         log.info("Prepare to send a file to telegram: {}", LocalDateTime.now());
 
-        return client.sendFileWithMessage(text, contentType, file);
+        return client.sendFileWithMessage(text, contentType, fileName, file);
     }
 
     @SneakyThrows
-    public Response publishFile(@NonNull String chatId, String text, String contentType, byte[] file) {
+    public Response publishFile(@NonNull String chatId, String text, String contentType, String fileName, byte[] file) {
         log.info("Prepare to send a file to telegram: {}", LocalDateTime.now());
 
-        return client.sendFileWithMessage(chatId, text, contentType, file);
+        return client.sendFileWithMessage(chatId, text, contentType, fileName, file);
     }
 
     @SneakyThrows

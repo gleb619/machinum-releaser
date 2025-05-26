@@ -50,18 +50,20 @@ public class TelegramClient implements AutoCloseable {
     }
 
     @SneakyThrows
-    public Response sendFileWithMessage(@NonNull String messageText, @NonNull String contentType, @NonNull byte[] document) {
-        return sendFileWithMessage(defaultChatId, messageText, contentType, document);
+    public Response sendFileWithMessage(@NonNull String messageText, @NonNull String contentType, String fileName, @NonNull byte[] document) {
+        return sendFileWithMessage(defaultChatId, messageText, contentType, fileName, document);
     }
 
     @SneakyThrows
     public Response sendFileWithMessage(@NonNull String chatId, @NonNull String messageText,
-                                        @NonNull String contentType, byte[] document) {
+                                        @NonNull String contentType, String fileName, byte[] document) {
         if (document.length <= 0) {
             throw new IllegalArgumentException("File doesn't exists");
         }
 
-        SendDocument request = new SendDocument(chatId, document).contentType(contentType)
+        SendDocument request = new SendDocument(chatId, document)
+                .fileName(fileName)
+                .contentType(contentType)
                 .caption(messageText)
                 .parseMode(ParseMode.HTML)
                 .allowSendingWithoutReply(false);
@@ -169,7 +171,7 @@ public class TelegramClient implements AutoCloseable {
 
             if (isLast) {
                 cover.hasSpoiler(true)
-                        .caption(messageText)
+                        .caption(trim(messageText, 9_000))
                         .parseMode(ParseMode.HTML);
             }
 
@@ -236,6 +238,16 @@ public class TelegramClient implements AutoCloseable {
     @Override
     public void close() throws Exception {
         bot.shutdown();
+    }
+
+    /* ============= */
+
+    private String trim(@NonNull String messageText, int maxLength) {
+        if (messageText.length() > maxLength) {
+            return messageText.substring(0, maxLength) + "...";
+        }
+
+        return messageText;
     }
 
     @Value

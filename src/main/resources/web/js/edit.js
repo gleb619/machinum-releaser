@@ -18,8 +18,8 @@ export function editApp() {
       chapters: null,
       author: '',
       description: '',
-      imageId: null,
-      originImageId: null,
+      imageId: '00000000-0000-0000-0000-000000000000',
+      originImageId: '00000000-0000-0000-0000-000000000000',
     },
   
     openCreateDrawer() {
@@ -78,6 +78,11 @@ export function editApp() {
         });
   
         if (!response.ok) {
+            response.json()
+            .then(rsp => {
+                this.showToast(`Failed to persist book: ${rsp.message || rsp.detail}`, true);
+            });
+
           throw new Error('Failed to persist book');
         }
   
@@ -86,7 +91,36 @@ export function editApp() {
         this.showToast('Book changed successfully!');
       } catch (error) {
         console.error('Error persisting book:', error);
-        this.showToast('Failed to persist book: ' + error.message, true);
+      }
+    },
+
+    async generateCoverImage(originImageId) {
+      if (this.isUploading) {
+        this.showToast('Please wait for the image to finish uploading', 'warning');
+        return;
+      }
+
+      try {
+        this.isUploading = true;
+        const response = await fetch(`/api/images/${originImageId}/cover`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to upload image');
+        }
+
+        // Store the image ID in the newBook object
+        const result = await response.json();
+        this.newBook.imageId = result.id;
+        this.showToast('Successfully created cover for image');
+      } catch (error) {
+        console.error('Error persisting book:', error);
+      } finally {
+        this.isUploading = false;
       }
     },
 

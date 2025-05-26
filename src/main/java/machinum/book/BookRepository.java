@@ -15,7 +15,7 @@ public class BookRepository {
     private final Jdbi jdbi;
 
     public List<Book> list(String query, Integer page, Integer size) {
-        int offset = (page - 1) * size;
+        int offset = page * size;
         if (query == null || query.isEmpty()) {
             return jdbi.withHandle(handle -> handle.createQuery("SELECT * FROM books LIMIT :size OFFSET :offset")
                     .bind("size", size)

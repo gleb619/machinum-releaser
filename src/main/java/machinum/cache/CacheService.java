@@ -2,10 +2,10 @@ package machinum.cache;
 
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
-import machinum.Util.CheckedSupplier;
+import machinum.util.CheckedSupplier;
 
 import java.time.Duration;
-import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
@@ -23,22 +23,29 @@ public class CacheService implements AutoCloseable {
 
     private final Duration defaultExpire;
 
+
     public <U> U get(String key, CheckedSupplier<U> dataSupplier) {
         return get(key, dataSupplier, defaultExpire.toMillis(), TimeUnit.MILLISECONDS);
     }
 
     @Synchronized
     public <U> U get(String key, CheckedSupplier<U> dataSupplier, long expirationTime, TimeUnit timeUnit) {
-        if (cache.containsKey(key) && !cache.get(key).isExpired()) {
-            log.debug("Return value from cache for: {}", key);
-            return (U) cache.get(key).getValue();
+        if (cache.containsKey(key)) {
+            if (!cache.get(key).isExpired()) {
+                log.debug("Return value from cache for: {}", key);
+                return (U) cache.get(key).getValue();
+            } else {
+                evict(key);
+            }
         }
 
         var cacheEntry = cache.computeIfAbsent(key, k -> {
             log.debug("Cache miss for key: {}", key);
             var value = dataSupplier.resolve();
-            return new CacheEntry<>(value, System.currentTimeMillis() + timeUnit.toMillis(expirationTime))
-                    .checkResult();
+
+            var expiryTime = getExpiryTime(expirationTime, timeUnit, value);
+
+            return new CacheEntry<>(value, expiryTime);
         });
 
         return (U) cacheEntry.getValue();
@@ -56,6 +63,14 @@ public class CacheService implements AutoCloseable {
         scheduler.scheduleAtFixedRate(this::removeExpiredEntries, period, period, timeUnit);
     }
 
+    @Override
+    public void close() throws Exception {
+        clear();
+        scheduler.shutdown();
+    }
+
+    /* ============= */
+
     private void removeExpiredEntries() {
         var expiredCount = cache.entrySet().stream()
                 .filter(entry -> entry.getValue().isExpired())
@@ -66,10 +81,17 @@ public class CacheService implements AutoCloseable {
         log.debug("Removed {} expired cache entries", expiredCount.size());
     }
 
-    @Override
-    public void close() throws Exception {
-        clear();
-        scheduler.shutdown();
+    private <U> long getExpiryTime(long expirationTime, TimeUnit timeUnit, U value) {
+        var isEmpty = Objects.isNull(value) || switch (value) {
+            case List<?> l -> l.isEmpty();
+            case Map<?, ?> m -> m.isEmpty();
+            case byte[] b -> b.length == 0;
+            case String s -> s.isEmpty();
+            default -> false;
+        };
+
+        var expiryTime = isEmpty ? System.currentTimeMillis() - 1 : System.currentTimeMillis() + timeUnit.toMillis(expirationTime);
+        return expiryTime;
     }
 
     @Data
@@ -84,20 +106,6 @@ public class CacheService implements AutoCloseable {
 
         public boolean isExpired() {
             return System.currentTimeMillis() > expiryTime;
-        }
-
-        public CacheEntry<T> checkResult() {
-            if (Objects.isNull(value)) {
-                setExpiryTime(System.currentTimeMillis() - 1);
-            } else if (value instanceof Collection<?> c && c.isEmpty()) {
-                setExpiryTime(System.currentTimeMillis() - 1);
-            } else if (value instanceof Map<?, ?> m && m.isEmpty()) {
-                setExpiryTime(System.currentTimeMillis() - 1);
-            } else if (value instanceof byte[] b && b.length == 0) {
-                setExpiryTime(System.currentTimeMillis() - 1);
-            }
-
-            return this;
         }
 
     }

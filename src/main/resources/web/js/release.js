@@ -1,6 +1,5 @@
 export function releaseApp() {
   return {
-
     releases: [],
     isReleaseFormOpen: false,
     currentRelease: {
@@ -105,22 +104,22 @@ export function releaseApp() {
             },
             body: JSON.stringify(this.currentRelease)
         })
-            .then(response => {
-                if (response.ok) {
-                    return response.json();
-                } else {
-                    throw new Error('Failed to save release');
-                }
-            })
-            .then(data => {
-                this.showToast(`Release ${isUpdate ? 'updated' : 'created'} successfully`);
-                this.isReleaseFormOpen = false;
-                this.fetchReleases(this.selectedBook.id);
-                this.afterReleasesChanged();
-            })
-            .catch(error => {
-                this.showToast('Error: ' + error.message, true);
-            });
+        .then(response => {
+            if (response.ok) {
+                return response.json();
+            } else {
+                throw new Error('Failed to save release');
+            }
+        })
+        .then(data => {
+            this.showToast(`Release ${isUpdate ? 'updated' : 'created'} successfully`);
+            this.isReleaseFormOpen = false;
+            this.fetchReleases(this.selectedBook.id);
+            this.afterReleasesChanged();
+        })
+        .catch(error => {
+            this.showToast('Error: ' + error.message, true);
+        });
     },
 
     formatDate(dateString) {

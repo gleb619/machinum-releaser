@@ -7,13 +7,13 @@ import machinum.cache.CacheService;
 import machinum.chapter.Chapter;
 import machinum.chapter.ChapterJsonlConverter;
 
+import java.net.ConnectException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -25,37 +25,53 @@ public class BookRestClient {
     private final String baseUrl;
 
 
-    public Map<String, String> getAllBookTitlesCached() {
+    public List<BookExportResult> getAllBookTitlesCached() {
         return cache.get("titles", this::getAllBookTitles);
     }
 
-    public Map<String, String> getAllBookTitles() {
+    public List<BookExportResult> getAllBookTitles() {
         return getBookTitles(0, 10_000);
     }
 
     @SneakyThrows
-    public Map<String, String> getBookTitles(int page, int size) {
-        StringBuilder urlBuilder = new StringBuilder(baseUrl).append("/api/books/titles");
+    public List<BookExportResult> getBookTitles(int page, int size) {
+        var urlBuilder = new StringBuilder(baseUrl).append("/api/books/titles");
 
         if (page >= 0 && size >= 1) {
             urlBuilder.append("?page=").append(page).append("&size=").append(size);
         }
 
-        HttpResponse<String> response = httpClient.send(HttpRequest.newBuilder()
-                .uri(URI.create(urlBuilder.toString()))
-                .header("Content-Type", "application/json")
-                .GET()
-                .build(), HttpResponse.BodyHandlers.ofString());
+        var targetUrl = urlBuilder.toString();
 
-        if (response.statusCode() == 204) {
-            return Collections.emptyMap();
-        } else if (response.statusCode() != 200) {
-            throw new RuntimeException("Failed to fetch book titles: " + response.statusCode());
+        log.info(">> {}", targetUrl);
+
+        try {
+            HttpResponse<String> response = httpClient.send(HttpRequest.newBuilder()
+                    .uri(URI.create(targetUrl))
+                    .header("Content-Type", "application/json")
+                    .GET()
+                    .build(), HttpResponse.BodyHandlers.ofString());
+
+            log.info("<< {} {}", targetUrl, response.statusCode());
+
+            if (response.statusCode() == 204) {
+                return Collections.emptyList();
+            } else if (response.statusCode() != 200) {
+                throw new RuntimeException("Failed to fetch book titles: " + response.statusCode());
+            }
+
+            String jsonList = response.body();
+
+            return List.of(chapterJsonlConverter.getObjectMapper().readValue(jsonList, BookExportResult[].class));
+        } catch (Exception e) {
+            if (e instanceof ConnectException ce) {
+                log.error("<X Server is not reachable: {}", ce.getMessage());
+            } else {
+                log.error("<< %s %s: ".formatted(targetUrl, -1), e);
+            }
+
+            return Collections.emptyList();
         }
-
-        String jsonList = response.body();
-
-        return chapterJsonlConverter.getObjectMapper().readValue(jsonList, Map.class);
     }
 
     public List<Chapter> getReadyChaptersCached(String id, Integer from, Integer to) {
@@ -84,6 +100,9 @@ public class BookRestClient {
         }
 
         return chapterJsonlConverter.fromString(response.body());
+    }
+
+    public record BookExportResult(String id, String title, Integer chaptersCount) {
     }
 
 }

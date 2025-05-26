@@ -9,7 +9,6 @@
             <input
                     @change="setNewUniqueId"
                     @focus="comboboxOpen = true"
-                    @input.debounce.300ms="filterComboboxOptions()"
                     @keydown.arrow-down.prevent="highlightComboboxNext()"
                     @keydown.arrow-up.prevent="highlightComboboxPrev()"
                     @keydown.enter.prevent="selectComboboxHighlighted()"
@@ -17,7 +16,8 @@
                     placeholder="Search or type a book title..."
                     type="text"
                     x-model="comboboxInputValue">
-            <button @click="toggleComboboxDropdown()"
+            <!--@input.debounce.300ms="filterComboboxOptions()"-->
+            <button @click="comboboxOpen = !comboboxOpen"
                     class="absolute inset-y-0 right-0 flex items-center pr-2"
                     type="button">
                 <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -28,7 +28,12 @@
             <ul
                     class="absolute z-10 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none"
                     x-show="comboboxOpen"
-                    x-transition>
+                    x-transition:enter="transition ease-out duration-100"
+                    x-transition:enter-end="opacity-100 transform scale-100"
+                    x-transition:enter-start="opacity-0 transform scale-95"
+                    x-transition:leave="transition ease-in duration-75"
+                    x-transition:leave-end="opacity-0 transform scale-95"
+                    x-transition:leave-start="opacity-100 transform scale-100">
                 <template :key="index" x-for="(option, index) in filteredComboboxOptions">
                     <li
                             :class="{
@@ -37,7 +42,10 @@
                             }"
                             @click="selectComboboxOption(option)"
                             class="text-gray-900 cursor-default select-none relative py-2 pl-3 pr-9 hover:bg-gray-100">
-                        <span x-text="option"></span>
+                        <span>
+                            <span x-text="option.title"></span>
+                            <small class="text-xs text-gray-300" x-text="`Chapters (${option.chaptersCount})`"></small>
+                        </span>
                         <span
                                 class="absolute inset-y-0 right-0 flex items-center pr-4 text-blue-600"
                                 x-show="selectedComboboxOption === option">

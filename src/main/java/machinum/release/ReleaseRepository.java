@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
-import static machinum.Util.typedParse;
+import static machinum.util.Util.typedParse;
 
 @Slf4j
 @RequiredArgsConstructor

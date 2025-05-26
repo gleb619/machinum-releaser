@@ -3,7 +3,7 @@ package machinum.release;
 import com.fasterxml.jackson.annotation.JsonUnwrapped;
 import jakarta.validation.Valid;
 import lombok.*;
-import machinum.Util.Pair;
+import machinum.util.Pair;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -13,8 +13,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 
-import static machinum.Util.toPair;
 import static machinum.release.Release.ReleaseConstants.PAGES_PARAM;
+import static machinum.util.Util.toPair;
 
 @Valid
 @Data

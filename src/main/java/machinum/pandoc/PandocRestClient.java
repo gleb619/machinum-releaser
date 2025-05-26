@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import machinum.cache.CacheService;
 
 import java.io.IOException;
+import java.net.ConnectException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -88,23 +89,39 @@ public class PandocRestClient {
                 outputFilename);
 
         // Create the HTTP request
+        var targetUrl = URI.create(baseUrl + "/api/transform");
+
+        log.info(">> {}", targetUrl);
+
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(baseUrl + "/api/transform"))
+                .uri(targetUrl)
                 .header("Content-Type", "multipart/form-data; boundary=" + boundary)
                 .POST(HttpRequest.BodyPublishers.ofByteArray(requestBody))
                 .build();
 
-        // Send the request and get the response
-        HttpResponse<byte[]> response = httpClient.send(
-                request,
-                HttpResponse.BodyHandlers.ofByteArray());
+        try {
+            // Send the request and get the response
+            HttpResponse<byte[]> response = httpClient.send(
+                    request,
+                    HttpResponse.BodyHandlers.ofByteArray());
 
-        // Check if the request was successful
-        byte[] result = response.body();
-        if (response.statusCode() >= 200 && response.statusCode() < 300) {
-            return result;
-        } else {
-            log.error("Error: [{}] {}", response.statusCode(), new String(result, StandardCharsets.UTF_8));
+            log.info("<< {} {}", targetUrl, response.statusCode());
+
+            // Check if the request was successful
+            byte[] result = response.body();
+            if (response.statusCode() >= 200 && response.statusCode() < 300) {
+                return result;
+            } else {
+                log.error("Error: [{}] {}", response.statusCode(), new String(result, StandardCharsets.UTF_8));
+                return new byte[0];
+            }
+        } catch (Exception e) {
+            if (e instanceof ConnectException ce) {
+                log.error("<X Server is not reachable: {}", ce.getMessage());
+            } else {
+                log.error("<< %s %s: ".formatted(targetUrl, -1), e);
+            }
+
             return new byte[0];
         }
     }

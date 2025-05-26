@@ -30,3 +30,5 @@ replay_pid*
 /src/main/generated/*
 /triangle
 /pandoc/output/*
+/pandoc/uploads/*
+/pandoc/venv/*

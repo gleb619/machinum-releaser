@@ -3,7 +3,7 @@ export function comboboxApp() {
     comboboxOpen: false,
     comboboxInputValue: '',
     comboboxOptions: [],
-    filteredComboboxOptions: [],
+    //filteredComboboxOptions: [],
     selectedComboboxOption: null,
     highlightedComboboxIndex: -1,
 
@@ -20,8 +20,9 @@ export function comboboxApp() {
             if (!response.ok) throw new Error('Failed to fetch');
 
             const tempResult = await response.json();
-            this.comboboxOptions = Object.keys(tempResult).map(key => tempResult[key]);
-            this.filteredComboboxOptions = [...this.comboboxOptions];
+            this.comboboxOptions = tempResult;
+//            this.comboboxOptions = tempResult.map(item => item.title);
+            //this.filteredComboboxOptions = [...this.comboboxOptions];
         } catch (error) {
             console.error('Error fetching data:', error);
             if(this.showToast) {
@@ -30,30 +31,32 @@ export function comboboxApp() {
         }
     },
 
-    filterComboboxOptions() {
+    get filteredComboboxOptions() {
         if (!this.comboboxInputValue) {
-            this.filteredComboboxOptions = [...this.comboboxOptions];
-            return;
+            return [...this.comboboxOptions];
         }
 
         const searchTerm = this.comboboxInputValue.toLowerCase();
-        this.filteredComboboxOptions = this.comboboxOptions.filter(option =>
-            option.toLowerCase().includes(searchTerm)
+        const result = this.comboboxOptions.filter(option =>
+            option.title.toLowerCase().includes(searchTerm)
         );
 
-        this.highlightedComboboxIndex = this.filteredComboboxOptions.length > 0 ? 0 : -1;
+        this.highlightedComboboxIndex = result.length > 0 ? 0 : -1;
+
+        return result;
     },
 
-    toggleComboboxDropdown() {
-        this.comboboxOpen = !this.comboboxOpen;
-        if (this.comboboxOpen) this.filterComboboxOptions();
-    },
+//    toggleComboboxDropdown() {
+//        this.comboboxOpen = !this.comboboxOpen;
+//        if (this.comboboxOpen) this.filterComboboxOptions();
+//    },
 
     selectComboboxOption(option) {
-        this.selectedComboboxOption = option;
-        this.comboboxInputValue = option;
+        this.selectedComboboxOption = option.title;
+        this.comboboxInputValue = option.title;
         this.comboboxOpen = false;
         this.setNewUniqueId();
+        this.newBook.chapters = option.chaptersCount;
     },
 
     highlightComboboxNext() {
@@ -62,7 +65,7 @@ export function comboboxApp() {
             return;
         }
 
-        if (this.highlightedComboboxIndex < this.filteredComboboxOptions.length - 1) {
+        if (this.highlightedComboboxIndex < this.filteredComboboxOptions().length - 1) {
             this.highlightedComboboxIndex++;
         }
     },
@@ -74,9 +77,9 @@ export function comboboxApp() {
     },
 
     selectComboboxHighlighted() {
-        if (this.highlightedComboboxIndex >= 0 && this.highlightedComboboxIndex < this.filteredComboboxOptions.length) {
-            this.selectComboboxOption(this.filteredComboboxOptions[this.highlightedComboboxIndex]);
-        } else if (this.filteredComboboxOptions.length === 0 && this.comboboxInputValue) {
+        if (this.highlightedComboboxIndex >= 0 && this.highlightedComboboxIndex < this.filteredComboboxOptions().length) {
+            this.selectComboboxOption(this.filteredComboboxOptions()[this.highlightedComboboxIndex]);
+        } else if (this.filteredComboboxOptions().length === 0 && this.comboboxInputValue) {
             // Allow custom entry
             this.selectedComboboxOption = this.comboboxInputValue;
             this.comboboxOpen = false;
