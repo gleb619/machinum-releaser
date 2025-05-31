@@ -35,10 +35,10 @@ public class TriangleWrapper {
 
     @SneakyThrows
     public static File addTriangleEffect(Image image) {
-//        var input = File.createTempFile("machinum", "_origin.jpg");
         var output = File.createTempFile("machinum", "_tr.jpg");
         Files.write(output.toPath(), image.getData());
-        var settings = defaultSettings(output.getAbsolutePath(), output.getAbsolutePath());
+        var imagePath = output.getAbsolutePath();
+        var settings = defaultSettings(imagePath, imagePath);
 
         return addTriangleEffect(settings);
     }
