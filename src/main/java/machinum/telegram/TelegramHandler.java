@@ -7,13 +7,18 @@ import lombok.extern.slf4j.Slf4j;
 import machinum.book.Book;
 import machinum.book.BookRestClient;
 import machinum.exception.AppException;
+import machinum.image.Image;
 import machinum.image.ImageRepository;
+import machinum.image.cover.CoverService;
+import machinum.image.cover.CoverService.CoverInfo;
 import machinum.markdown.MarkdownConverter;
 import machinum.pandoc.PandocRestClient;
 import machinum.release.ReleaseRepository;
 import machinum.scheduler.ActionHandler;
 
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -31,13 +36,16 @@ import static machinum.telegram.TelegramHandler.TelegramConstants.TELEGRAM_CHAPT
 @RequiredArgsConstructor
 public class TelegramHandler implements ActionHandler {
 
+    private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+
     private final TelegramService telegramService;
+    private final TelegramProperties telegramProperties;
     private final ReleaseRepository repository;
     private final ImageRepository imageRepository;
     private final BookRestClient bookRestClient;
     private final MarkdownConverter markdownConverter;
     private final PandocRestClient pandocRestClient;
-    private final String channelName;
+    private final CoverService coverService;
 
     /**
      * Handles the action context based on whether it's the first or subsequent release.
@@ -67,6 +75,15 @@ public class TelegramHandler implements ActionHandler {
                 .replaceAll("[^0-9a-zA-Z]", "_")
                 .trim()
                 .concat(".epub");
+    }
+
+    public static String formatDate(LocalDate now) {
+        return now.format(DATE_TIME_FORMATTER);
+    }
+
+    public static String startOfYear(int year) {
+        LocalDate firstDay = LocalDate.of(year, 1, 1);
+        return formatDate(firstDay);
     }
 
     /**
@@ -107,23 +124,48 @@ public class TelegramHandler implements ActionHandler {
                 .map(s -> s.getBytes(StandardCharsets.UTF_8))
                 .toList();
         var image = imageRepository.getById(book.getImageId());
+        var partIndex = context.getReleasePosition() + 1;
+
+        String number = partIndex + "";
+        CoverInfo coverInfo = new CoverInfo(number, book.getRuName(), "M T.\nNOVELS", telegramProperties.getChannelLink(), "@mt_novel", "Subscribe");
+        Image coverImage = coverService.generateBookCover(image, coverInfo);
+        String fileName = NameUtil.toSnakeCase(book.getEnName()) + "_%s.epub".formatted(partIndex);
 
         var epubBytes = pandocRestClient.convertToEpubCached(createNew(b -> b
                 .startIndex(chaptersRequest.first())
                 .markdownFiles(markdowns)
-                .title(book.getRuName())
-                .author(book.getAuthor())
-                .coverImage(image.getData())
+                .coverImage(coverImage.getData())
                 .coverContentType(image.getContentType())
-                .tocDepth(2)
-                .outputFilename(bookName)
+                .title(book.getRuName())
+                .subtitle("Часть %s".formatted(partIndex))
+                .author(book.getAuthor())
+                .publisher(telegramProperties.getChatId())
+                .publisherInfo("""
+                        Мы — скромная, но талантливая команда энтузиастов-переводчиков, собравшихся не ради славы, денег или мирового господства (пока), а ради одной простой, почти наивной идеи: делиться историями и знаниями с каждым, кто готов слушать.
+                                                
+                        Нам не нужны награды и признание — мы просто верим, что хорошие книги не должны пылиться на полках, прятаться за paywall'ами или исчезать в темноте авторских прав. Их место — в головах и сердцах живых людей, а не в архивах и сейфах.
+                                                
+                        Так что да, мы здесь, чтобы книги жили. Иногда с опечатками. Иногда с примечаниями в духе "переводчик плакал". Но — жили.
+                        """)
+                //.edition("")
+                .rights("Без авторских прав. Используйте свободно.")
+                //.legalRights("")
+                //.disclaimer("")
+                .description(book.getDescription())
+                .keywords(String.join(", ", book.getGenre()))
+                .date(startOfYear(book.getYear()))
+                .pubdate(formatDate(context.getReleaseTarget().getCreatedAt().toLocalDate()))
+                //.website("")
+                .socialLinks(List.of(
+                        telegramProperties.getChannelLink()
+                ))
+                .outputFilename(fileName)
         ));
 
         if (Objects.nonNull(epubBytes) && epubBytes.length > 0) {
-            String fileName = NameUtil.toSnakeCase(book.getEnName()) + ".epub";
             var response = telegramService.publishNewChapter(book.getRuName(),
                     tgBookId,
-                    channelName,
+                    telegramProperties.getChannelName(),
                     chapters,
                     status,
                     fileName,

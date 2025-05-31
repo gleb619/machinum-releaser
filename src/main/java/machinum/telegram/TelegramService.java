@@ -9,6 +9,7 @@ import machinum.image.Image;
 import machinum.telegram.TelegramClient.Response;
 
 import java.io.File;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -20,73 +21,80 @@ public class TelegramService {
 
     public static final String EPUB_CONTENT_TYPE = "application/epub+zip";
 
+    private final TelegramProperties telegramProperties;
     private final TelegramClient client;
 
     @SneakyThrows
     public Response publishNewBook(Book newBook, List<Image> images) {
         log.info("Prepare to start a telegram session: {}", LocalDateTime.now());
 
+        //@formatter:off
         String message = dsl()
                 .customEmoji("\uD83C\uDF1F")
                 .bold(" Анонс новой книги! ")
                 .customEmoji("\uD83C\uDF1F")
-                .newLine()
+                    .newLine()
                 .text("Мы с радостью представляем новый роман в нашей библиотеке! " +
                         "Погрузитесь в эту невероятную историю и исследуйте ее захватывающий мир.")
-                .newLine()
+                    .newLine()
                 .customEmoji("\uD83D\uDCCC")
                 .bold(" Подробности: ")
-                .newLine()
+                    .newLine()
                 .customEmoji("\uD83D\uDDCF")
                 .bold(" Название: ")
-                .newLine(1)
+                    .newLine(1)
                 .list(dsl -> dsl.listOf(
                         dsl.bold("Русское: ").text(newBook.getRuName()).dump(),
                         dsl.bold("Английское: ").text(newBook.getEnName()).dump(),
                         dsl.bold("Оригинальное: ").text(newBook.getOriginName()).dump()
                 ))
-                .newLine(1)
+                    .newLine(1)
                 .customEmoji("\uD83D\uDD17")
                 .bold(" Ссылка: ")
                 .link(newBook.getLinkText(), newBook.getLink())
-                .newLine()
+                    .newLine()
                 .customEmoji("\uD83D\uDCDA")
                 .bold(" Тип: ")
                 .text(newBook.getType())
-                .newLine()
+                    .newLine()
                 .customEmoji("\uD83D\uDCD6")
                 .bold(" Жанры: ")
                 .tags(newBook.getGenre())
-//                .newLine()
-//                .customEmoji("#")
-//                .bold(" Теги: ")
-//                .tags(newBook.getTags())
-                .newLine()
+                    .newLine()
+                .customEmoji("#")
+                .bold(" Теги: ")
+                .tags(newBook.getTags())
+                    .newLine()
                 .customEmoji("\uD83D\uDCC6")
                 .bold(" Год публикации: ")
                 .text(newBook.getYear())
-                .newLine()
+                    .newLine()
                 .customEmoji("\uD83D\uDCDD")
                 .bold(" Количество глав: ")
                 .text(newBook.getChapters())
-                .newLine()
+                    .newLine()
                 .customEmoji("✍\uFE0F")
                 .bold(" Автор: ")
                 .text(newBook.getAuthor())
-//                .newLine()
-//                    .customEmoji("\uD83D\uDCDC")
-//                    .bold(" Синопсис: ")
-//                    .spoiler(newBook.description())
-                .newLine()
+                    .newLine()
+                .customEmoji("\uD83D\uDCDC")
+                .bold(" Синопсис: ")
+                .spoiler(newBook.getDescription())
+                    .newLine()
                 .customEmoji("\uD83D\uDCAC")
                 .text(" Наслаждайтесь этим удивительным дополнением к нашей коллекции. " +
                         "И следите за переводами первых глав в ближайшее время! ")
-                .newLine()
+                    .newLine()
                 .text("Счастливого чтения! ")
                 .customEmoji("\uD83C\uDF1F")
                 .build();
+        //@formatter:on
 
-        log.info("Created message: message={}", message);
+        int totalBytes = images.stream()
+                .mapToInt(image -> image.getData().length)
+                .sum() + message.getBytes(StandardCharsets.UTF_8).length;
+
+        log.info("Created message: size={} raw, size={} kb, message={}", totalBytes, (float) totalBytes / 1024, message);
 
         var response = client.sendImagesWithMessage(message, images);
 
@@ -132,7 +140,7 @@ public class TelegramService {
     @SneakyThrows
     public Response publishNewChapter(String name, Integer synopsisMessageId, String channel, String chapters,
                                       String status, String fileName, byte[] document) {
-        return publishNewChapter(client.getDefaultChatId(), name, synopsisMessageId, channel, chapters, status, fileName, document);
+        return publishNewChapter(telegramProperties.getChatId(), name, synopsisMessageId, channel, chapters, status, fileName, document);
     }
 
     @SneakyThrows

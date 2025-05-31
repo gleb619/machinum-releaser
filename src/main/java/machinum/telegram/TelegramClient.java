@@ -13,9 +13,9 @@ import com.pengrad.telegrambot.response.SendResponse;
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
 import machinum.image.Image;
-import machinum.image.TriangleWrapper;
 import net.coobird.thumbnailator.Thumbnails;
 
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
@@ -28,20 +28,19 @@ import java.util.stream.Stream;
 public class TelegramClient implements AutoCloseable {
 
     private final TelegramBot bot;
-    @Getter
-    private final String defaultChatId;
+    private final TelegramProperties telegramProperties;
     private final ObjectMapper objectMapper;
 
-    public TelegramClient(String token, String chatId, ObjectMapper objectMapper) {
-        this.bot = new TelegramBot(token);
-        this.defaultChatId = chatId;
+    public TelegramClient(TelegramProperties telegramProperties, ObjectMapper objectMapper) {
+        this.bot = new TelegramBot(telegramProperties.getToken());
+        this.telegramProperties = telegramProperties;
         this.objectMapper = objectMapper;
         log.debug("Started telegram session");
     }
 
     @SneakyThrows
     public Integer sendMessage(@NonNull String messageText) {
-        return sendMessage(defaultChatId, messageText);
+        return sendMessage(telegramProperties.getChatId(), messageText);
     }
 
     @SneakyThrows
@@ -51,7 +50,7 @@ public class TelegramClient implements AutoCloseable {
 
     @SneakyThrows
     public Response sendFileWithMessage(@NonNull String messageText, @NonNull String contentType, String fileName, @NonNull byte[] document) {
-        return sendFileWithMessage(defaultChatId, messageText, contentType, fileName, document);
+        return sendFileWithMessage(telegramProperties.getChatId(), messageText, contentType, fileName, document);
     }
 
     @SneakyThrows
@@ -83,7 +82,7 @@ public class TelegramClient implements AutoCloseable {
 
     @SneakyThrows
     public Integer sendFilesWithMessage(@NonNull String messageText, @NonNull String contentType, @NonNull File... documents) {
-        return sendFilesWithMessage(defaultChatId, messageText, contentType, documents);
+        return sendFilesWithMessage(telegramProperties.getChatId(), messageText, contentType, documents);
     }
 
     @SneakyThrows
@@ -141,7 +140,7 @@ public class TelegramClient implements AutoCloseable {
 
     @SneakyThrows
     public Response sendImagesWithMessage(@NonNull String messageText, @NonNull List<Image> images) {
-        return sendImagesWithMessage(defaultChatId, messageText, images);
+        return sendImagesWithMessage(telegramProperties.getChatId(), messageText, images);
     }
 
     @SneakyThrows
@@ -157,8 +156,9 @@ public class TelegramClient implements AutoCloseable {
 
             boolean isLast = (i >= images.size() - 1);
             String contentType = image.getContentType();
-            var tempImage = TriangleWrapper.addTriangleEffect(image);
-            Thumbnails.of(tempImage)
+            var tempImage = File.createTempFile("machinum", "_tr.jpg");
+            //TODO rewrite to new Thumbnail library with blurhash algorithm
+            Thumbnails.of(new ByteArrayInputStream(image.getData()))
                     .scale(0.25)
                     .outputFormat("jpg")
                     .toFile(tempImage);
@@ -202,7 +202,7 @@ public class TelegramClient implements AutoCloseable {
     }
 
     public Integer replyToMessage(Integer messageId, String messageText) {
-        return replyToMessage(defaultChatId, messageId, messageText);
+        return replyToMessage(telegramProperties.getChatId(), messageId, messageText);
     }
 
     @SneakyThrows
