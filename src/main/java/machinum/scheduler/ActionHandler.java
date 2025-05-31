@@ -42,6 +42,7 @@ public interface ActionHandler {
                     .book(book)
                     .isFirstRelease(result == 0)
                     .isLastRelease(result == 2)
+                    .releasePosition(result)
                     .build();
 
             switch (targetName) {
@@ -67,6 +68,7 @@ public interface ActionHandler {
         Book book;
         boolean isFirstRelease;
         boolean isLastRelease;
+        int releasePosition;
 
         public <T> T get(String key) {
             return (T) data.get(key);

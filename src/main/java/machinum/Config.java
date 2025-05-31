@@ -14,8 +14,8 @@ import machinum.book.BookRepository;
 import machinum.book.BookRestClient;
 import machinum.cache.CacheService;
 import machinum.chapter.ChapterJsonlConverter;
-import machinum.image.CoverService;
 import machinum.image.ImageRepository;
+import machinum.image.cover.CoverService;
 import machinum.markdown.MarkdownConverter;
 import machinum.pandoc.PandocRestClient;
 import machinum.release.ReleaseRepository;
@@ -25,6 +25,7 @@ import machinum.scheduler.ActionHandler.ActionsHandler;
 import machinum.scheduler.Scheduler;
 import machinum.telegram.TelegramClient;
 import machinum.telegram.TelegramHandler;
+import machinum.telegram.TelegramProperties;
 import machinum.telegram.TelegramService;
 import machinum.util.Pair;
 import org.jdbi.v3.core.Jdbi;
@@ -166,20 +167,24 @@ public class Config implements Extension {
         var pandocRestClient = new PandocRestClient(httpClient, cache, pandocUrl);
         registry.putIfAbsent(PandocRestClient.class, pandocRestClient);
 
-        var token = config.getString("telegram.token");
-        var chatId = config.getString("telegram.chatId");
-        var channelName = config.getString("telegram.channelName");
-        var tgClient = new TelegramClient(token, chatId, objectMapperTg);
-        var tgService = new TelegramService(tgClient);
-        var tgHandler = new TelegramHandler(tgService, releaseRepository, imageRepository, restClient, markdownConverter, pandocRestClient, channelName);
+        var coverService = new CoverService();
+        registry.putIfAbsent(CoverService.class, coverService);
+
+        var tgProperties = TelegramProperties.builder()
+                .token(config.getString("telegram.token"))
+                .chatId(config.getString("telegram.chatId"))
+                .channelName(config.getString("telegram.channelName"))
+                .channelLink(config.getString("telegram.channelLink"))
+                .build();
+        var tgClient = new TelegramClient(tgProperties, objectMapperTg);
+        var tgService = new TelegramService(tgProperties, tgClient);
+        var tgHandler = new TelegramHandler(tgService, tgProperties, releaseRepository, imageRepository, restClient, markdownConverter, pandocRestClient, coverService);
         registry.putIfAbsent(TelegramClient.class, tgClient);
         registry.putIfAbsent(TelegramService.class, tgService);
 
         var handler = new ActionsHandler(tgHandler, releaseRepository, targetRepository, bookRepository);
         registry.putIfAbsent(ActionsHandler.class, handler);
         registry.putIfAbsent(Scheduler.class, new Scheduler(Executors.newScheduledThreadPool(1), releaseRepository, handler));
-
-        registry.putIfAbsent(CoverService.class, new CoverService());
 
         application.onStop(() -> {
             application.require(Scheduler.class).close();

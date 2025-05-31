@@ -26,6 +26,11 @@ public class Util {
         throw new NullPointerException("All values are null");
     }
 
+    // Helper method to check if a string is non-empty
+    public static boolean isNonEmpty(String str) {
+        return str != null && !str.isEmpty();
+    }
+
     public static void runAsync(Runnable runnable) {
         CompletableFuture.runAsync(runnable)
                 .whenComplete((unused, e) -> {

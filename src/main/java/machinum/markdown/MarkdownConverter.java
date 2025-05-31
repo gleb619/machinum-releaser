@@ -7,11 +7,14 @@ import machinum.chapter.Chapter;
 public class MarkdownConverter {
 
     public String toMarkdown(Chapter chapter) {
+        String text = chapter.getTranslatedText()
+                .replaceAll("(?m)$", "  ");
+
         return """
-                # %s
-                                
-                %s
-                """.formatted(chapter.getTranslatedTitle(), chapter.getTranslatedText());
+                # %s \s
+                 \s
+                %s \s
+                """.formatted(chapter.getTranslatedTitle(), text);
     }
 
 }

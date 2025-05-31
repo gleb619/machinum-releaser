@@ -88,6 +88,9 @@ dependencies {
     implementation 'io.avaje:avaje-validator:2.9'
     annotationProcessor 'io.avaje:avaje-validator-generator:2.9'
 
+    implementation 'com.google.zxing:core:3.5.3'
+
+
     testCompileOnly "org.projectlombok:lombok:$lombokVersion"
     testAnnotationProcessor "org.projectlombok:lombok:$lombokVersion"
 
@@ -101,6 +104,7 @@ dependencies {
     // test
     testImplementation "org.junit.jupiter:junit-jupiter-api:$junitVersion"
     testImplementation "org.junit.jupiter:junit-jupiter-engine:$junitVersion"
+    testImplementation "org.junit.jupiter:junit-jupiter-params:$junitVersion"
     testImplementation "io.jooby:jooby-test"
 //  testImplementation 'com.squareup.okhttp3:okhttp:4.12.0'
     testImplementation "org.mockito:mockito-core:$mockitoVersion"

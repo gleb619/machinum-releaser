@@ -6,6 +6,7 @@ import io.jooby.annotation.*;
 import lombok.Cleanup;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
+import machinum.image.cover.CoverService;
 import org.apache.commons.io.IOUtils;
 
 import java.io.IOException;

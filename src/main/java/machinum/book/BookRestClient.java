@@ -75,7 +75,7 @@ public class BookRestClient {
     }
 
     public List<Chapter> getReadyChaptersCached(String id, Integer from, Integer to) {
-        return cache.get("chapters", () -> getReadyChapters(id, from, to));
+        return cache.get("chapters_%s_%s_%s".formatted(id, from, to), () -> getReadyChapters(id, from, to));
     }
 
     @SneakyThrows
