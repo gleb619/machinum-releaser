@@ -32,3 +32,4 @@ replay_pid*
 /pandoc/output/*
 /pandoc/uploads/*
 /pandoc/venv/*
+/logo/*
