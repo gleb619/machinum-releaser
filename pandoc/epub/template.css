@@ -1,0 +1,811 @@
+@page {
+  margin: 10px;
+}
+
+/* CSS Reset with modern improvements */
+html, body, div, span, applet, object, iframe, h1, h2, h3, h4, h5, h6, p,
+blockquote, pre, a, abbr, acronym, address, big, cite, code, del, dfn, em, img,
+ins, kbd, q, s, samp, small, strike, strong, sub, sup, tt, var, b, u, i, center,
+fieldset, form, label, legend, table, caption, tbody, tfoot, thead, tr, th, td,
+article, aside, canvas, details, embed, figure, figcaption, footer, header,
+hgroup, menu, nav, output, ruby, section, summary, time, mark, audio, video, ol,
+ul, li, dl, dt, dd {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font-size: 100%;
+  vertical-align: baseline;
+  box-sizing: border-box;
+}
+
+/* Enhanced typography and readability */
+html {
+  line-height: 1.6;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Georgia, serif;
+  color: #2c3e50;
+  background: #fdfdfd;
+  scroll-behavior: smooth;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  padding: 2em 1.5em;
+  text-align: left;
+  font-feature-settings: "liga", "kern";
+}
+
+/* Enhanced paragraph styling */
+p {
+  text-indent: 0;
+  margin: 0.8em 0;
+  widows: 2;
+  orphans: 2;
+  line-height: 1.7;
+  text-align: justify;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  -moz-hyphens: auto;
+}
+
+/* Modern link styling */
+a, a:visited {
+  color: #3498db;
+  text-decoration: none;
+  border-bottom: 1px dotted #3498db;
+  transition: all 0.2s ease;
+}
+
+a:hover {
+  color: #2980b9;
+  border-bottom: 1px solid #2980b9;
+  text-decoration: none;
+}
+
+/* Responsive images */
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 1.5em auto;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* Enhanced superscript and subscript */
+sup, sub {
+  font-size: 75%;
+  line-height: 0;
+  position: relative;
+  vertical-align: baseline;
+}
+
+sup {
+  top: -0.5em;
+}
+
+sub {
+  bottom: -0.25em;
+}
+
+/* Modern heading styles */
+#toc-title {
+  text-align: center;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  text-indent: 0;
+  text-align: left;
+  font-weight: 600;
+  page-break-after: avoid;
+  page-break-inside: avoid;
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+}
+
+h1 {
+  margin: 1.4em 0 0.8em 0;
+  font-size: 2.2em;
+  color: #2c3e50;
+  page-break-before: always;
+  border-bottom: 2px solid #ecf0f1;
+  padding-bottom: 0.5em;
+}
+
+h2 {
+  margin: 1.3em 0 0.7em 0;
+  font-size: 1.8em;
+  color: #34495e;
+  font-weight: 500;
+}
+
+h3 {
+  margin: 1.2em 0 0.6em 0;
+  font-size: 1.4em;
+  color: #2c3e50;
+  font-weight: 500;
+}
+
+h4 {
+  margin: 1em 0 0.5em 0;
+  font-size: 1.2em;
+  color: #34495e;
+}
+
+h5, h6 {
+  margin: 0.8em 0 0.4em 0;
+  font-size: 1.1em;
+  color: #2c3e50;
+}
+
+/* Enhanced list styling */
+ol, ul {
+  margin: 1em 0;
+  padding-left: 2em;
+  line-height: 1.6;
+}
+
+li {
+  margin: 0.5em 0;
+}
+
+li > ol, li > ul {
+  margin-top: 0;
+}
+
+/* Modern blockquote styling */
+blockquote {
+  margin: 1.5em 2em;
+  padding: 1em 1.5em;
+  background: #f8f9fa;
+  border-left: 4px solid #3498db;
+  font-style: italic;
+  color: #34495e;
+  border-radius: 0 4px 4px 0;
+}
+
+/* Enhanced code styling */
+code {
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', Consolas, monospace;
+  background: #f1f2f6;
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+  font-size: 0.9em;
+  color: #e74c3c;
+  hyphens: manual;
+  font-feature-settings: "liga" 0;
+}
+
+pre {
+  margin: 1.5em 0;
+  background: #2c3e50;
+  color: #ecf0f1;
+  padding: 1.5em;
+  border-radius: 4px;
+  overflow-x: auto;
+  line-height: 1.4;
+}
+
+pre code {
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  overflow: visible;
+  overflow-wrap: normal;
+}
+
+.sourceCode {
+  background-color: transparent;
+  overflow: visible;
+}
+
+/* Modern horizontal rule */
+hr {
+  border: none;
+  border-top: 2px solid #ecf0f1;
+  margin: 2em 0;
+  text-align: center;
+  position: relative;
+}
+
+hr::after {
+  content: "❦";
+  display: inline-block;
+  background: #fdfdfd;
+  padding: 0 1em;
+  color: #bdc3c7;
+  font-size: 1.2em;
+  position: relative;
+  top: -0.6em;
+}
+
+/* Enhanced table styling */
+table {
+  margin: 1.5em 0;
+  border-collapse: collapse;
+  width: 100%;
+  background: white;
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+table caption {
+  margin-bottom: 0.75em;
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+tbody {
+  margin-top: 0.5em;
+}
+
+th, td {
+  padding: 0.8em 1em;
+  text-align: left;
+  border-bottom: 1px solid #ecf0f1;
+}
+
+th {
+  background: #f8f9fa;
+  font-weight: 600;
+  color: #2c3e50;
+  border-bottom: 2px solid #3498db;
+}
+
+tr:hover {
+  background: #f8f9fa;
+}
+
+/* Title page enhancements */
+.title-page-main {
+  text-align: center;
+  padding: 3em 1em;
+  min-height: 70vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  page-break-before: always;
+}
+
+.title-page-main h1 {
+  font-size: 2.5em;
+  font-weight: 300;
+  margin: 0 0 0.5em 0;
+  color: #1a252f;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  border: none;
+  padding: 0;
+}
+
+.title-page-main h1.main-title {
+  font-size: 3em;
+  color: #34495e;
+  text-align: center;
+}
+
+.title-page-main h2.subtitle {
+  font-size: 1.4em;
+  font-weight: 400;
+  color: #7f8c8d;
+  margin: 0 0 2em 0;
+  font-style: italic;
+  text-align: center;
+}
+
+/* Author block styling */
+.author-block {
+  margin: 2em 0;
+  border-top: 1px solid #ecf0f1;
+  border-bottom: 1px solid #ecf0f1;
+  padding: 1.5em 0;
+}
+
+.author-block .author {
+  font-size: 1.2em;
+  font-weight: 500;
+  color: #2c3e50;
+  margin: 0.3em 0;
+  text-align: center;
+}
+
+.author-block .editor,
+.author-block .translator,
+.author-block .contributor {
+  font-size: 1em;
+  color: #7f8c8d;
+  margin: 0.2em 0;
+}
+
+.author-block .date {
+  font-size: 1em;
+  color: #95a5a6;
+  margin: 0.3em 0;
+  text-align: center;
+}
+
+/* Book description styling */
+.book-description {
+  margin: 2em auto 1.5em auto;
+  max-width: 32em;
+  padding: 1.5em;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 6px;
+  border-left: 4px solid #3498db;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+.book-description .description {
+  font-size: 1.1em;
+  line-height: 1.7;
+  color: #2c3e50;
+  margin: 0;
+  font-style: italic;
+  text-align: left;
+}
+
+/* Metadata page styling */
+.metadata-page {
+  padding: 2em 1em;
+  max-width: 35em;
+  margin: 2em auto 0;
+  background: #fafbfc;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+.metadata-page.imprint {
+    page-break-before: always;
+}
+
+.metadata-page h2 {
+  font-size: 1.6em;
+  color: #2c3e50;
+  margin: 0 0 1.5em 0;
+  border-bottom: 2px solid #3498db;
+  padding-bottom: 0.5em;
+}
+
+.metadata-page h3 {
+  font-size: 1.3em;
+  color: #34495e;
+  margin: 1.5em 0 0.8em 0;
+  font-weight: 600;
+}
+
+.metadata-page p {
+  margin: 0.8em 0;
+  line-height: 1.7;
+}
+
+.metadata-page strong {
+  color: #2c3e50;
+  font-weight: 600;
+}
+
+/* Info sections */
+.info-section {
+  background: white;
+  padding: 1.5em;
+  margin: 1em 0;
+  border-left: 4px solid #3498db;
+  border-radius: 0 4px 4px 0;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+/* Social links */
+.social-links {
+  background: #f8f9fa;
+  padding: 1.2em;
+  border-radius: 4px;
+  margin: 1em 0;
+}
+
+.social-links ul {
+  list-style: none;
+  padding: 0;
+  margin: 0.5em 0 0 0;
+}
+
+.social-links li {
+  margin: 0.4em 0;
+}
+
+.social-links a {
+  color: #3498db;
+  text-decoration: none;
+  font-weight: 500;
+  border-bottom: 1px dotted #3498db;
+}
+
+.social-links a:hover {
+  color: #2980b9;
+  border-bottom: 1px solid #2980b9;
+}
+
+/* Notice boxes */
+.disclaimer, .rights {
+  page-break-before: always;
+  border-radius: 6px;
+  padding: 1.5em;
+  margin: 1.5em 0;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.disclaimer {
+  background: #fff3cd;
+  border: 1px solid #ffeaa7;
+}
+
+.rights {
+  background: #d4edda;
+  border: 1px solid #c3e6cb;
+  page-break-before: always;
+}
+
+.disclaimer h3 {
+  color: #856404;
+  margin-top: 0;
+}
+
+.rights h3 {
+  color: #155724;
+  margin-top: 0;
+}
+
+/* License link */
+.license-link {
+  display: inline-block;
+  margin-top: 1em;
+  padding: 0.5em 1em;
+  background: #e8f5e8;
+  border-radius: 4px;
+  text-decoration: none;
+  color: #155724;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.license-link:hover {
+  background: #d4edda;
+  transform: translateY(-1px);
+}
+
+/* Copyright */
+.copyright {
+  text-align: center;
+  margin-top: 2em;
+  padding-top: 1em;
+  border-top: 1px solid #ecf0f1;
+  color: #7f8c8d;
+  font-size: 0.9em;
+}
+
+/* Cover styling */
+#cover {
+  margin: 0;
+  padding: 0;
+}
+
+#cover-image {
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+}
+
+#cover-image svg {
+  max-width: 90%;
+  max-height: 90%;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+  border-radius: 8px;
+}
+
+/* Chapter page styling */
+.chapter-page section {
+  padding: 2em 1em;
+  max-width: 75em;
+  margin: 0 auto;
+  page-break-before: always;
+}
+
+/* Figure and caption styling */
+figure {
+  margin: 2em 0;
+  text-align: center;
+}
+
+figcaption {
+  font-style: italic;
+  color: #7f8c8d;
+  margin-top: 0.5em;
+  font-size: 0.9em;
+}
+
+/* TOC styling */
+#TOC li {
+  list-style: none;
+}
+
+#TOC ul {
+  padding-left: 1.3em;
+}
+
+#TOC > ul {
+  padding-left: 0;
+}
+
+#TOC a:not(:hover) {
+  text-decoration: none;
+  border-bottom: none;
+}
+
+nav#toc ol, nav#landmarks ol {
+  padding: 0;
+  margin-left: 1em;
+}
+
+nav#toc ol li, nav#landmarks ol li {
+  list-style-type: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* Footnote styling */
+a.footnote-ref {
+  vertical-align: super;
+  font-size: 0.8em;
+  text-decoration: none;
+  color: #3498db;
+  border-bottom: none;
+}
+
+/* Emphasis styling */
+em, em em em, em em em em em {
+  font-style: italic;
+  color: inherit;
+}
+
+em em, em em em em {
+  font-style: normal;
+}
+
+/* Quote styling */
+q {
+  quotes: """ """ "'" "'";
+}
+
+/* Utility classes */
+.display.math {
+  display: block;
+  text-align: center;
+  margin: 0.5rem auto;
+}
+
+div.hanging-indent {
+  margin-left: 1.5em;
+  text-indent: -1.5em;
+}
+
+ul.task-list {
+  list-style: none;
+}
+
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1.6em;
+  vertical-align: middle;
+}
+
+span.smallcaps {
+  font-variant: small-caps;
+}
+
+/* Column layout */
+div.column {
+  display: inline-block;
+  vertical-align: top;
+  width: 50%;
+}
+
+/* Responsive design */
+@media screen and (max-width: 768px) {
+  body {
+    padding: 1em;
+  }
+
+  .title-page-main h1 {
+    font-size: 2em;
+  }
+
+  .title-page-main h1.main-title {
+    font-size: 2.3em;
+  }
+
+  .metadata-page {
+    padding: 1.5em 1em;
+    margin: 1em auto;
+  }
+
+  .chapter-page section {
+    padding: 1em 0.5em;
+  }
+
+  h1 {
+    font-size: 1.8em;
+  }
+
+  h2 {
+    font-size: 1.5em;
+  }
+
+  blockquote {
+    margin: 1em 0.5em;
+    padding: 0.8em 1em;
+  }
+
+  table {
+    font-size: 0.9em;
+  }
+
+  th, td {
+    padding: 0.6em 0.8em;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  body {
+    padding: 0.5em;
+  }
+
+  .title-page-main {
+    padding: 2em 0.5em;
+  }
+
+  .book-description {
+    padding: 1em;
+    margin: 1em auto;
+  }
+
+  pre {
+    padding: 1em;
+    font-size: 0.9em;
+  }
+}
+
+/* Print optimizations */
+@media print {
+  body {
+    color: #000;
+    background: #fff;
+  }
+
+  a, a:visited {
+    color: #000;
+    border-bottom: none;
+  }
+
+  .title-page-main {
+    page-break-after: always;
+  }
+
+  .metadata-page {
+    page-break-before: always;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    page-break-after: avoid;
+  }
+
+  img {
+    max-width: 100%;
+    page-break-inside: avoid;
+  }
+
+  blockquote, pre, figure {
+    page-break-inside: avoid;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  html {
+    background: #1a1a1a;
+    color: #e0e0e0;
+  }
+
+  body {
+    background: #1a1a1a;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    color: #f0f0f0;
+  }
+
+  a, a:visited {
+    color: #4a9eff;
+    border-bottom-color: #4a9eff;
+  }
+
+  a:hover {
+    color: #66b3ff;
+    border-bottom-color: #66b3ff;
+  }
+
+  blockquote {
+    background: #2a2a2a;
+    color: #d0d0d0;
+  }
+
+  code {
+    background: #2a2a2a;
+    color: #ff6b6b;
+  }
+
+  pre {
+    background: #0d1117;
+    color: #f0f6fc;
+  }
+
+  table {
+    background: #1a1a1a;
+  }
+
+  th {
+    background: #2a2a2a;
+    color: #f0f0f0;
+  }
+
+  tr:hover {
+    background: #2a2a2a;
+  }
+
+  .metadata-page {
+    background: #1f1f1f;
+  }
+
+  .info-section {
+    background: #1f1f1f;
+  }
+
+  .social-links {
+    background: #2a2a2a;
+  }
+}
+
+/* Enhanced accessibility */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+  h1, h2, h3, h4, h5, h6 {
+    color: #000;
+  }
+
+  a, a:visited {
+    color: #0000ff;
+  }
+
+  code {
+    background: #fff;
+    color: #000;
+    border: 1px solid #000;
+  }
+}

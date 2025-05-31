@@ -3,62 +3,69 @@
 <head>
     <meta charset="UTF-8">
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <!--<meta http-equiv="refresh" content="10;url={{ url_for('cleanup', session_id=session_id) }}">-->
     <title>Download EPUB</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            line-height: 1.6;
-            text-align: center;
-        }
-        .container {
-            background-color: #f9f9f9;
-            border-radius: 5px;
-            padding: 20px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-        }
-        h1 {
-            color: #333;
-            border-bottom: 1px solid #ddd;
-            padding-bottom: 10px;
-        }
-        .download-button {
-            display: inline-block;
-            background-color: #4CAF50;
-            color: white;
-            padding: 15px 25px;
-            margin: 20px 0;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 18px;
-            text-decoration: none;
-        }
-        .download-button:hover {
-            background-color: #45a049;
-        }
-        .back-link {
-            display: block;
-            margin-top: 20px;
-        }
-    </style>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"
+          rel="stylesheet">
 </head>
-<body>
-<div class="container">
-    <h1>Your EPUB is Ready!</h1>
-    <p>Your markdown files have been successfully converted to EPUB format.</p>
+<body class="bg-gray-100">
 
-    <a class="download-button" href="{{ url_for('get_file', session_id=session_id, filename=filename) }}">
-        Download {{ filename }}
-    </a>
+<!-- Main Container -->
+<div class="container mx-auto px-4 py-8" id="mainContent">
 
-    <p><small>After downloading, your files will be automatically deleted from our server.</small></p>
+    <!-- Breadcrumb -->
+    <nav aria-label="Breadcrumb" class="flex mb-5">
+        <ol class="inline-flex items-center space-x-1 md:space-x-2 rtl:space-x-reverse">
+            <li class="inline-flex items-center">
+                <a class="inline-flex items-center text-sm font-medium text-gray-700 hover:text-blue-600"
+                   href="/">
+                    <svg aria-hidden="true" class="w-3 h-3 mr-2" fill="currentColor" viewBox="0 0 20 20"
+                         xmlns="http://www.w3.org/2000/svg">
+                        <path d="m19.707 9.293-2-2-7-7a1 1 0 0 0-1.414 0l-7 7-2 2a1 1 0 0 0 1.414 1.414L2 10.414V18a2 2 0 0 0 2 2h3a1 1 0 0 0 1-1v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4a1 1 0 0 0 1 1h3a2 2 0 0 0 2-2v-7.586l.293.293a1 1 0 0 0 1.414-1.414Z"/>
+                    </svg>
+                    Home
+                </a>
+            </li>
+            <li>
+                <div class="flex items-center">
+                    <svg aria-hidden="true" class="rtl:rotate-180 w-3 h-3 text-gray-400 mx-1 mr-2"
+                         fill="none" viewBox="0 0 6 10" xmlns="http://www.w3.org/2000/svg">
+                        <path d="m1 9 4-4-4-4" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
+                              stroke-width="2"/>
+                    </svg>
+                    <a class="ms-1 text-sm font-medium text-gray-700 hover:text-blue-600 md:ms-2"
+                       href="/pandoc">Pandoc</a>
+                </div>
+            </li>
+            <li>
+                <div class="flex items-center">
+                    <svg aria-hidden="true" class="rtl:rotate-180 w-3 h-3 text-gray-400 mx-1 mr-2"
+                         fill="none" viewBox="0 0 6 10" xmlns="http://www.w3.org/2000/svg">
+                        <path d="m1 9 4-4-4-4" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
+                              stroke-width="2"/>
+                    </svg>
+                    <a class="ms-1 text-sm font-medium text-gray-700 hover:text-blue-600 md:ms-2"
+                       href="#">{{ filename }}</a>
+                </div>
+            </li>
+        </ol>
+    </nav>
 
-    <a class="back-link" href="{{ url_for('cleanup', session_id=session_id) }}">Return to converter</a>
+    <div class="max-w-3xl mx-auto p-5 leading-relaxed text-center">
+        <div class="bg-white rounded-lg p-5 shadow-md">
+            <h1 class="text-gray-800 text-2xl font-bold border-b border-gray-300 pb-2.5 mb-5">Your EPUB is Ready!</h1>
+            <p>Your markdown files have been successfully converted to EPUB format.</p>
+            <a class="download-button inline-block bg-green-500 text-white py-4 px-6 my-5 border-0 rounded cursor-pointer text-lg no-underline hover:bg-green-600 transition-colors duration-200"
+               href="{{ url_for('get_file', session_id=session_id, filename=filename) }}">
+                Download {{ filename }}
+            </a>
+            <p class="text-sm text-gray-600 mb-5">After downloading, your files will be automatically deleted from our
+                server.</p>
+            <a class="block mt-5 text-blue-600 hover:text-blue-800 underline"
+               href="{{ url_for('cleanup', session_id=session_id) }}">Return to converter</a>
+        </div>
+    </div>
 </div>
-
 <script>
     // Automatically trigger cleanup after download
     document.querySelector('.download-button').addEventListener('click', function() {

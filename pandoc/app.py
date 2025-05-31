@@ -49,7 +49,6 @@ class EpubMetadata:
         self.cover_image = kwargs.get('cover_image')
         # custom fields
         self.legal_rights = kwargs.get('legal_rights', '')
-        self.title_prefix = kwargs.get('title_prefix', '')
         self.publisher_info = kwargs.get('publisher_info', '')
         self.edition = kwargs.get('edition', '')
         self.social_links = kwargs.get('social_links', [])
@@ -98,8 +97,6 @@ class EpubMetadata:
         # Custom fields
         if self.legal_rights:
             metadata['legal-rights'] = self.legal_rights
-        if self.title_prefix:
-            metadata['title-prefix'] = self.title_prefix
         if self.publisher_info:
             metadata['publisher-info'] = self.publisher_info
         if self.edition:
@@ -122,7 +119,7 @@ class EpubConverter:
         self.output_folder = output_folder
         self.allowed_md_extensions = {'md', 'markdown', 'txt'}
         self.allowed_img_extensions = {'jpg', 'jpeg', 'png', 'gif', 'webp'}
-        self.epub_template = os.path.join(template_folder, 'custom-epub-template.html')
+        self.epub_template = os.path.join(template_folder, 'template.html')
         self.css_template = os.path.join(template_folder, 'template.css')
         self.logger = logger
 
@@ -190,10 +187,12 @@ class EpubConverter:
                 # Use custom template if available
                 if os.path.exists(self.epub_template):
                     cmd.extend(["--template", self.epub_template])
+                    self.logger.debug(f'Custom html template added: {metadata.cover_image}')
 
                 # Use custom template of css if available
                 if os.path.exists(self.css_template):
                     cmd.extend([f"--css={self.css_template}"])
+                    self.logger.debug(f'Custom css added: {metadata.cover_image}')
 
                 # Add cover image if provided
                 if metadata.cover_image and os.path.exists(metadata.cover_image):
@@ -201,7 +200,7 @@ class EpubConverter:
                     self.logger.debug(f'Cover image added: {metadata.cover_image}')
 
                 # Execute pandoc command
-                self.logger.debug(f'Executing pandoc command: {" ".join(cmd)}')
+                self.logger.debug(f'Executing pandoc command: {" ".join(cmd).replace(os.getcwd(), ".")}')
                 result = subprocess.run(
                     cmd,
                     check=True,
@@ -231,6 +230,169 @@ class EpubConverter:
                 return False, error_message, None
 
 
+def _process_epub_conversion(return_response=False):
+    """Common processing logic for EPUB conversion."""
+    # Validate file upload
+    if 'markdown_files' not in request.files:
+        error_msg = 'No markdown files provided'
+        app.logger.error(error_msg)
+        if return_response:
+            return jsonify({'error': error_msg}), 400
+        else:
+            flash('No files selected', 'error')
+            return redirect(request.url)
+
+    files = request.files.getlist('markdown_files')
+    if not files or all(f.filename == '' for f in files):
+        error_msg = 'No valid files selected'
+        app.logger.error(error_msg)
+        if return_response:
+            return jsonify({'error': error_msg}), 400
+        else:
+            flash('No files selected', 'error')
+            return redirect(request.url)
+
+    app.logger.info(f"Got request to create epub from: {len(files)} files")
+
+    # Initialize converter
+    converter = EpubConverter(
+        upload_folder=app.config['UPLOAD_FOLDER'],
+        output_folder=app.config['OUTPUT_FOLDER'],
+        template_folder=app.config['APP_PANDOC_TEMPLATES'],
+        logger=app.logger
+    )
+
+    app.logger.debug(
+        f'Initialized EpubConverter with upload folder: {converter.upload_folder} and output folder: {converter.output_folder}')
+
+    # Create session directory
+    session_id = str(uuid.uuid4())
+    session_upload_dir = os.path.join(app.config['UPLOAD_FOLDER'], session_id)
+    os.makedirs(session_upload_dir, exist_ok=True)
+
+    app.logger.debug(f'Created session upload directory: {session_upload_dir}')
+
+    try:
+        # Save markdown files
+        saved_files = []
+        for file in files:
+            if file and converter._is_file_allowed(file.filename, converter.allowed_md_extensions):
+                filename = secure_filename(file.filename)
+                file_path = os.path.join(session_upload_dir, filename)
+                file.save(file_path)
+                saved_files.append(file_path)
+
+        if not saved_files:
+            error_msg = 'No valid markdown files uploaded'
+            app.logger.error(error_msg)
+            if return_response:
+                return jsonify({'error': error_msg}), 400
+            else:
+                flash('No valid markdown files were uploaded', 'error')
+                return redirect(url_for('index'))
+
+        # Handle cover image
+        cover_image_path = None
+        if 'cover_image' in request.files and request.files['cover_image'].filename:
+            cover_image = request.files['cover_image']
+            if converter._is_file_allowed(cover_image.filename, converter.allowed_img_extensions):
+                cover_filename = secure_filename(cover_image.filename)
+                cover_image_path = os.path.join(session_upload_dir, cover_filename)
+                cover_image.save(cover_image_path)
+
+        # Handle social_links array
+        social_links = request.form.getlist('social_links')
+        social_links = [link.strip() for link in social_links if link.strip()]
+
+        # Create metadata object with all form parameters
+        metadata = EpubMetadata(
+            title=request.form.get('title', 'Unnamed'),
+            subtitle=request.form.get('subtitle', ''),
+            author=request.form.get('author', ''),
+            publisher=request.form.get('publisher', ''),
+            language=request.form.get('language', 'ru-RU'),
+            date=request.form.get('date', ''),
+            pubdate=request.form.get('pubdate', ''),
+            description=request.form.get('description', ''),
+            rights=request.form.get('rights', ''),
+            keywords=request.form.get('keywords', ''),
+            toc_depth=request.form.get('toc_depth', 2),
+            cover_image=cover_image_path,
+            # custom fields
+            publisher_info=request.form.get('publisher_info', ''),
+            edition=request.form.get('edition', ''),
+            legal_rights=request.form.get('legal_rights', ''),
+            social_links=social_links,
+            website=request.form.get('website', '')
+        )
+
+        app.logger.debug(f'Created metadata: {metadata}')
+
+        # Get output filename
+        output_filename = request.form.get('output_filename', 'output.epub')
+
+        app.logger.debug(f'Output filename set to: {output_filename}')
+
+        # Convert to EPUB
+        success, message, output_file = converter.convert_to_epub(
+            saved_files, metadata, output_filename
+        )
+
+        if success and output_file:
+            app.logger.info(f'EPUB conversion successful for session ID: {session_id}, output file: {output_file}')
+
+            if return_response:
+                # Send file to client
+                response = send_file(
+                    output_file,
+                    as_attachment=True,
+                    download_name=os.path.basename(output_file)
+                )
+
+                # Clean up after response
+                @response.call_on_close
+                def cleanup_files():
+                    try:
+                        if os.path.exists(session_upload_dir):
+                            shutil.rmtree(session_upload_dir)
+                        if os.path.exists(os.path.dirname(output_file)):
+                            shutil.rmtree(os.path.dirname(output_file))
+                    except Exception as e:
+                        app.logger.error(f"Cleanup error: {e}")
+
+                return response
+            else:
+                flash('Conversion successful!', 'success')
+                # Extract session_id from output_file path for download
+                output_session_id = os.path.basename(os.path.dirname(output_file))
+                return redirect(url_for('download_file',
+                                        session_id=output_session_id,
+                                        filename=os.path.basename(output_file)))
+        else:
+            error_msg = f'EPUB conversion failed for session ID: {session_id} with message: {message}'
+            app.logger.error(error_msg)
+            if return_response:
+                return jsonify({'error': message}), 500
+            else:
+                flash(f'Conversion failed: {message}', 'error')
+                return redirect(url_for('index'))
+
+    except Exception as e:
+        error_msg = f'Processing error in conversion for session ID: {session_id}'
+        app.logger.exception(error_msg)
+        if return_response:
+            return jsonify({'error': f'Processing error: {str(e)}'}), 500
+        else:
+            flash(f'Processing error: {str(e)}', 'error')
+            return redirect(url_for('index'))
+
+    finally:
+        # Ensure cleanup on any exception
+        if os.path.exists(session_upload_dir):
+            shutil.rmtree(session_upload_dir, ignore_errors=True)
+            app.logger.debug(f'Session upload directory cleaned up: {session_upload_dir}')
+
+
 def check_pandoc_installed():
     """Check if pandoc is installed and available in the PATH."""
     try:
@@ -258,229 +420,13 @@ def index():
 def api_transform():
     """API endpoint for markdown to EPUB conversion."""
     app.logger.info('Received request at /api/transform')
-
-    # Validate file upload
-    if 'markdown_files' not in request.files:
-        app.logger.error('No markdown files provided')
-        return jsonify({'error': 'No markdown files provided'}), 400
-
-    files = request.files.getlist('markdown_files')
-    if not files or all(f.filename == '' for f in files):
-        app.logger.error('No valid files selected')
-        return jsonify({'error': 'No valid files selected'}), 400
-
-    # Initialize converter
-    converter = EpubConverter(
-        upload_folder=app.config['UPLOAD_FOLDER'],
-        output_folder=app.config['OUTPUT_FOLDER'],
-        template_folder=app.config['APP_PANDOC_TEMPLATES'],
-        logger=app.logger
-    )
-    app.logger.debug(
-        f'Initialized EpubConverter with upload folder: {converter.upload_folder} and output folder: {converter.output_folder}')
-
-    # Create session directory
-    session_id = str(uuid.uuid4())
-    session_upload_dir = os.path.join(app.config['UPLOAD_FOLDER'], session_id)
-    os.makedirs(session_upload_dir, exist_ok=True)
-    app.logger.debug(f'Created session upload directory: {session_upload_dir}')
-
-    try:
-        # Save markdown files
-        saved_files = []
-        for file in files:
-            if file and converter._is_file_allowed(file.filename, converter.allowed_md_extensions):
-                filename = secure_filename(file.filename)
-                file_path = os.path.join(session_upload_dir, filename)
-                file.save(file_path)
-                saved_files.append(file_path)
-
-        if not saved_files:
-            app.logger.error('No valid markdown files uploaded')
-            return jsonify({'error': 'No valid markdown files uploaded'}), 400
-
-        # Handle cover image
-        cover_image_path = None
-        if 'cover_image' in request.files and request.files['cover_image'].filename:
-            cover_image = request.files['cover_image']
-            if converter._is_file_allowed(cover_image.filename, converter.allowed_img_extensions):
-                cover_filename = secure_filename(cover_image.filename)
-                cover_image_path = os.path.join(session_upload_dir, cover_filename)
-                cover_image.save(cover_image_path)
-
-        # Create metadata object with all form parameters
-        metadata = EpubMetadata(
-            title=request.form.get('title', ''),
-            subtitle=request.form.get('subtitle', ''),
-            author=request.form.get('author', ''),
-            publisher=request.form.get('publisher', ''),
-            language=request.form.get('language', 'ru-RU'),
-            date=request.form.get('date', ''),
-            pubdate=request.form.get('pubdate', ''),
-            description=request.form.get('description', ''),
-            rights=request.form.get('rights', ''),
-            keywords=request.form.get('keywords', ''),
-            toc_depth=request.form.get('toc_depth', 2),
-            cover_image=cover_image_path
-        )
-        app.logger.debug(f'Created metadata: {metadata}')
-
-        # Get output filename
-        output_filename = request.form.get('output_filename', 'output.epub')
-        app.logger.debug(f'Output filename set to: {output_filename}')
-
-        # Convert to EPUB
-        success, message, output_file = converter.convert_to_epub(
-            saved_files, metadata, output_filename
-        )
-        if success and output_file:
-            app.logger.info(f'EPUB conversion successful for session ID: {session_id}, output file: {output_file}')
-            # Send file to client
-            response = send_file(
-                output_file,
-                as_attachment=True,
-                download_name=os.path.basename(output_file)
-            )
-
-            # Clean up after response
-            @response.call_on_close
-            def cleanup_files():
-                try:
-                    if os.path.exists(session_upload_dir):
-                        shutil.rmtree(session_upload_dir)
-                    if os.path.exists(os.path.dirname(output_file)):
-                        shutil.rmtree(os.path.dirname(output_file))
-                except Exception as e:
-                    app.logger.error(f"Cleanup error: {e}")
-
-            return response
-        else:
-            app.logger.error(f'EPUB conversion failed for session ID: {session_id} with message: {message}')
-            return jsonify({'error': message}), 500
-
-    except Exception as e:
-        app.logger.exception(f'Processing error in /api/transform for session ID: {session_id}')
-        return jsonify({'error': f'Processing error: {str(e)}'}), 500
-
-    finally:
-        # Ensure cleanup on any exception
-        if os.path.exists(session_upload_dir):
-            shutil.rmtree(session_upload_dir, ignore_errors=True)
-            app.logger.debug(f'Session upload directory cleaned up: {session_upload_dir}')
+    return _process_epub_conversion(return_response=True)
 
 
 @app.route('/convert', methods=['POST'])
 def convert():
     """Handle file uploads and conversion to EPUB using new API."""
-    try:
-        # Validate file upload
-        if 'markdown_files' not in request.files:
-            app.logger.error('No files selected')
-            flash('No files selected', 'error')
-            return redirect(request.url)
-
-        files = request.files.getlist('markdown_files')
-        if not files or all(f.filename == '' for f in files):
-            app.logger.error('No valid files uploaded')
-            flash('No files selected', 'error')
-            return redirect(request.url)
-
-        app.logger.info(f"Got request to create epub from: {len(files)} files")
-
-        # Initialize converter
-        converter = EpubConverter(
-            upload_folder=app.config['UPLOAD_FOLDER'],
-            output_folder=app.config['OUTPUT_FOLDER'],
-            template_folder=app.config['APP_PANDOC_TEMPLATES'],
-            logger=app.logger
-        )
-
-        # Create session directory
-        session_id = str(uuid.uuid4())
-        session_upload_dir = os.path.join(app.config['UPLOAD_FOLDER'], session_id)
-        os.makedirs(session_upload_dir, exist_ok=True)
-
-        # Save markdown files
-        saved_files = []
-        for file in files:
-            if file and converter._is_file_allowed(file.filename, converter.allowed_md_extensions):
-                filename = secure_filename(file.filename)
-                file_path = os.path.join(session_upload_dir, filename)
-                file.save(file_path)
-                saved_files.append(file_path)
-
-        if not saved_files:
-            app.logger.error('No valid markdown files were uploaded')
-            flash('No valid markdown files were uploaded', 'error')
-            return redirect(url_for('index'))
-
-        # Handle cover image
-        cover_image_path = None
-        if 'cover_image' in request.files and request.files['cover_image'].filename:
-            cover_image = request.files['cover_image']
-            if converter._is_file_allowed(cover_image.filename, converter.allowed_img_extensions):
-                cover_filename = secure_filename(cover_image.filename)
-                cover_image_path = os.path.join(session_upload_dir, cover_filename)
-                cover_image.save(cover_image_path)
-
-        # Handle social_links array
-        social_links = request.form.getlist('social_links')
-        # Filter out empty strings
-        social_links = [link.strip() for link in social_links if link.strip()]
-
-        # Create metadata object with form parameters
-        metadata = EpubMetadata(
-            title=request.form.get('title', 'Unnamed'),
-            subtitle=request.form.get('subtitle', ''),
-            author=request.form.get('author', ''),
-            publisher=request.form.get('publisher', ''),
-            language=request.form.get('language', 'ru-RU'),
-            date=request.form.get('date', ''),
-            pubdate=request.form.get('pubdate', ''),
-            description=request.form.get('description', ''),
-            rights=request.form.get('rights', ''),
-            keywords=request.form.get('keywords', ''),
-            toc_depth=request.form.get('toc_depth', 2),
-            cover_image=cover_image_path,
-            # custom fields
-            title_prefix=request.form.get('title_prefix', ''),
-            publisher_info=request.form.get('publisher_info', ''),
-            edition=request.form.get('edition', ''),
-            legal_rights=request.form.get('legal_rights', ''),
-            social_links=social_links,
-            website=request.form.get('website', '')
-        )
-
-        # Get output filename
-        output_filename = request.form.get('output_filename', 'output.epub')
-
-        # Convert to EPUB using new API
-        success, message, output_file = converter.convert_to_epub(
-            saved_files, metadata, output_filename
-        )
-
-        if success and output_file:
-            app.logger.info('Conversion successful')
-            flash('Conversion successful!', 'success')
-            # Extract session_id from output_file path for download
-            output_session_id = os.path.basename(os.path.dirname(output_file))
-            return redirect(url_for('download_file',
-                                    session_id=output_session_id,
-                                    filename=os.path.basename(output_file)))
-        else:
-            app.logger.error(f'Conversion failed: {message}')
-            flash(f'Conversion failed: {message}', 'error')
-            return redirect(url_for('index'))
-
-    except Exception as e:
-        app.logger.exception('Processing error')
-        flash(f'Processing error: {str(e)}', 'error')
-        return redirect(url_for('index'))
-
-    finally:
-        # Clean up upload directory
-        if os.path.exists(session_upload_dir):
-            shutil.rmtree(session_upload_dir, ignore_errors=True)
+    return _process_epub_conversion(return_response=False)
 
 
 @app.route('/download/<session_id>/<filename>')

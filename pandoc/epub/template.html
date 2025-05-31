@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html $endif$ $if(lang)$ lang="$lang$" xml:lang="$lang$"
+      xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
+<head>
+    <meta charset="UTF-8"/>
+    <meta content="text/html; charset=utf-8" http-equiv="Content-Type"/>
+    <meta content="text/css" http-equiv="Content-Style-Type"/>
+    <meta content="pandoc" name="generator"/>
+    <title>$pagetitle$</title>
+    $if(keywords)$
+    <meta content="$for(keywords)$$keywords$$sep$, $endfor$" name="keywords"/>
+    $endif$
+    $if(description)$
+    <meta content="$description$" name="description"/>
+    $endif$
+    <style type="text/css">
+        $if(csl-css)$
+                $styles.citations.html()$
+        $endif$
+        $if(highlighting-css)$
+                $highlighting-css$
+        $endif$
+        $if(titlepage)$
+                .title-page-main {
+                    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+                }
+        $endif$
+    </style>
+    $for(css)$
+    <link href="$css$" rel="stylesheet" type="text/css"/>
+    $endfor$
+    $for(header-includes)$
+    $header-includes$
+    $endfor$
+    $if(math)$
+    $math$
+    $endif$
+</head>
+<body
+$else$ $elseif(titlepage)$$endif$ $endif$$if(coverpage)$$if(coverpage)$ class="cover-page"class="chapter-page"
+class="title-page"id="cover">
+$if(titlepage)$
+<section class="title-page-main" epub:type="titlepage">
+    <div class="title-page-content">
+        $for(title)$
+        $if(title.text)$
+        <h1 class="$title.type$" epub:type="title">$title.text$</h1>
+        $else$
+        <h1 class="main-title" epub:type="title">$title$</h1>
+        $endif$
+        $endfor$
+        $if(subtitle)$
+        <h2 class="subtitle" epub:type="subtitle">$subtitle$</h2>
+        $endif$
+        $if(description)$
+        <div class="book-description">
+            <p class="description" epub:type="description">$description$</p>
+        </div>
+        $endif$
+        <div class="author-block">
+            $for(author)$
+            <p class="author" epub:type="author">$author$</p>
+            $endfor$
+            $if(date)$
+            <p class="date" epub:type="date">$date$</p>
+            $endif$
+        </div>
+    </div>
+</section>
+
+$if(pubdate)$
+<section class="metadata-page imprint" epub:type="imprint">
+    <h2>Информация о публикации</h2>
+
+    $if(publisher-info)$
+    <div class="info-section">
+        <p class="publisher-info"><strong>Информация об издателе:</strong> $publisher-info$</p>
+    </div>
+    $endif$
+    $if(edition)$
+    <div class="info-section">
+        <p class="edition"><strong>Издание:</strong> $edition$</p>
+    </div>
+    $endif$
+    $if(website)$
+    <div class="info-section">
+        <p class="website"><strong>Веб-сайт:</strong> <a epub:type="external" href="$website$"
+                                                         target="_blank">$website$</a></p>
+    </div>
+    $endif$
+    $if(social-links)$
+    <div class="social-links">
+        <strong>Социальные сети:</strong>
+        <ul>
+            $for(social-links)$
+            <li><a epub:type="external" href="$social-links$" target="_blank">$social-links$</a></li>
+            $endfor$
+        </ul>
+    </div>
+    $endif$
+
+    $if(disclaimer)$
+    <div class="disclaimer">
+        <h3>Отказ от ответственности</h3>
+        $disclaimer$
+    </div>
+    $else$
+    <div class="disclaimer">
+        <h3>Отказ от ответственности</h3>
+        <p>Данный материал предоставляется «как есть», без каких-либо гарантий или условий, явных или подразумеваемых.
+            Авторы не несут ответственности за любые убытки или повреждения, возникшие в результате использования этого
+            материала.</p>
+    </div>
+    $endif$
+
+    $if(legal-rights)$
+    <div class="rights">
+        <h3>Юридические права</h3>
+        $legal-rights$
+    </div>
+    $else$
+    <div class="rights">
+        <h3>Лицензия на использование контента</h3>
+
+        <p><strong>Настоящий материал распространяется на условиях лицензии Creative Commons CC0 1.0 Universal
+            (Общественное достояние).</strong></p>
+
+        <p>Автор(ы) настоящего материала настоящим добровольно и окончательно отказываются от всех авторских прав и
+            смежных прав, включая, но не ограничиваясь, правами на воспроизведение, распространение, публичный показ,
+            переработку, перевод и адаптацию контента. Этот отказ распространяется на весь мир и действует
+            бессрочно.</p>
+
+        <p>Целью данного отказа является предоставление контента в распоряжение всего человечества без каких-либо
+            условий, ограничений или обязательств, как в личных, так и в коммерческих целях. Данный материал может
+            использоваться любым лицом без необходимости получения разрешения от авторов.</p>
+
+        <p>Автор(ы) подтверждают, что полностью осознают правовые последствия данного отказа от прав, включая
+            невозможность отзыва или ограничения предоставленных свобод, за исключением случаев, прямо предусмотренных
+            законом.</p>
+
+        <p>В тех юрисдикциях, где полный отказ от прав невозможен, автор(ы) предоставляют каждому лицу неисключительную,
+            бессрочную, безвозмездную, неограниченную по территории лицензию на использование, копирование, модификацию
+            и распространение материала с любыми целями.</p>
+
+        <p>Использование данного материала не требует указания авторства, но приветствуется добросовестное упоминание
+            источника в случаях, когда это уместно.</p>
+
+        <p><strong>Пожалуйста, учитывайте законы вашей страны.</strong> Некоторые государства могут иметь ограничения на
+            отказ от прав или особые требования к использованию общественного достояния. Пользователи несут
+            ответственность за соблюдение применимого законодательства.</p>
+
+        <p><em>Ссылка на полный текст лицензии CC0:</em>
+            <a class="license-link" epub:type="external" href="https://creativecommons.org/publicdomain/zero/1.0/"
+               target="_blank">https://creativecommons.org/publicdomain/zero/1.0/</a>
+        </p>
+    </div>
+    $endif$
+
+    $if(pubdate)$
+    <p class="copyright">$pubdate$ $if(publisher)$$publisher$$endif$. Свободно для любого использования.</p>
+    $endif$
+</section>
+$endif$
+$endif$
+
+$if(coverpage)$
+<section class="metadata-page" epub:type="cover">
+    <div id="cover-image">
+        <svg height="100%" preserveAspectRatio="xMidYMid" version="1.1" viewBox="0 0 $cover-image-width$ $cover-image-height$"
+             width="100%" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+            <image height="$cover-image-height$" width="$cover-image-width$" xlink:href="../media/$cover-image$"/>
+        </svg>
+    </div>
+</section>
+$else$
+$for(include-before)$
+$include-before$
+$endfor$
+$if(body)$
+$body$
+$endif$
+$for(include-after)$
+$include-after$
+$endfor$
+$endif$
+</body>
+</html>
