@@ -19,7 +19,7 @@ public class ImageRepository {
 
     public Image getById(String id) {
         return findById(id)
-                .orElseThrow(() -> new IllegalStateException("Image for given id is not found: " + id));
+                .orElseThrow(() -> new AppException("Image for given id is not found: " + id));
     }
 
     public Optional<Image> findById(String id) {

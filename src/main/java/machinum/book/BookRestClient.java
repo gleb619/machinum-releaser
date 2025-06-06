@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import machinum.cache.CacheService;
 import machinum.chapter.Chapter;
 import machinum.chapter.ChapterJsonlConverter;
+import machinum.exception.AppException;
 
 import java.net.ConnectException;
 import java.net.URI;
@@ -96,7 +97,7 @@ public class BookRestClient {
 
         if (response.statusCode() != 200) {
             log.error("Can't get book's chapters: bookId={}\n{}", id, response.body());
-            throw new IllegalStateException("Can't get book's chapters");
+            throw new AppException("Can't get book's chapters");
         }
 
         return chapterJsonlConverter.fromString(response.body());

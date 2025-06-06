@@ -12,6 +12,7 @@ import com.pengrad.telegrambot.response.MessagesResponse;
 import com.pengrad.telegrambot.response.SendResponse;
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
+import machinum.exception.AppException;
 import machinum.image.Image;
 import net.coobird.thumbnailator.Thumbnails;
 
@@ -27,6 +28,8 @@ import java.util.stream.Stream;
 @Slf4j
 public class TelegramClient implements AutoCloseable {
 
+    public static final int TELEGRAM_LIMIT = 1024;
+
     private final TelegramBot bot;
     private final TelegramProperties telegramProperties;
     private final ObjectMapper objectMapper;
@@ -39,18 +42,8 @@ public class TelegramClient implements AutoCloseable {
     }
 
     @SneakyThrows
-    public Integer sendMessage(@NonNull String messageText) {
-        return sendMessage(telegramProperties.getChatId(), messageText);
-    }
-
-    @SneakyThrows
     public Integer sendMessage(@NonNull String chatId, @NonNull String messageText) {
         return replyToMessage(chatId, null, messageText);
-    }
-
-    @SneakyThrows
-    public Response sendFileWithMessage(@NonNull String messageText, @NonNull String contentType, String fileName, @NonNull byte[] document) {
-        return sendFileWithMessage(telegramProperties.getChatId(), messageText, contentType, fileName, document);
     }
 
     @SneakyThrows
@@ -71,18 +64,13 @@ public class TelegramClient implements AutoCloseable {
 
         if (!response.isOk()) {
             log.error("Found mistake: code={}, description={}", response.errorCode(), response.description());
-            throw new IllegalStateException("Error occurred: %s".formatted(objectMapper.writeValueAsString(response)));
+            throw new AppException("Error occurred: %s".formatted(objectMapper.writeValueAsString(response)));
         } else {
             log.info("Got success response: id={}, message={}", response.message().messageId(), response.message());
             var jsonNode = objectMapper.valueToTree(response);
 
             return Response.of(response.message().messageId(), jsonNode);
         }
-    }
-
-    @SneakyThrows
-    public Integer sendFilesWithMessage(@NonNull String messageText, @NonNull String contentType, @NonNull File... documents) {
-        return sendFilesWithMessage(telegramProperties.getChatId(), messageText, contentType, documents);
     }
 
     @SneakyThrows
@@ -125,7 +113,7 @@ public class TelegramClient implements AutoCloseable {
 
         if (Objects.nonNull(response) && !response.isOk()) {
             log.error("Found mistake: code={}, description={}", response.errorCode(), response.description());
-            throw new IllegalStateException("Error occurred: %s".formatted(objectMapper.writeValueAsString(response)));
+            throw new AppException("Error occurred: %s".formatted(objectMapper.writeValueAsString(response)));
         } else if (Objects.nonNull(response)) {
             Message[] messages = response.messages();
             if (Objects.nonNull(messages) && messages.length > 0) {
@@ -136,11 +124,6 @@ public class TelegramClient implements AutoCloseable {
         }
 
         return -1;
-    }
-
-    @SneakyThrows
-    public Response sendImagesWithMessage(@NonNull String messageText, @NonNull List<Image> images) {
-        return sendImagesWithMessage(telegramProperties.getChatId(), messageText, images);
     }
 
     @SneakyThrows
@@ -171,7 +154,7 @@ public class TelegramClient implements AutoCloseable {
 
             if (isLast) {
                 cover.hasSpoiler(true)
-                        .caption(trim(messageText, 9_000))
+                        .caption(trim(messageText, TELEGRAM_LIMIT))
                         .parseMode(ParseMode.HTML);
             }
 
@@ -186,7 +169,7 @@ public class TelegramClient implements AutoCloseable {
 
             if (!response.isOk()) {
                 log.error("Found mistake: code={}, description={}", response.errorCode(), response.description());
-                throw new IllegalStateException("Error occurred: %s".formatted(objectMapper.writeValueAsString(response)));
+                throw new AppException("Error occurred: %s".formatted(objectMapper.writeValueAsString(response)));
             } else {
                 var jsonNode = objectMapper.valueToTree(response);
                 var messageIds = Stream.of(response.messages()).map(Message::messageId).collect(Collectors.toList());
@@ -195,14 +178,10 @@ public class TelegramClient implements AutoCloseable {
             }
         } catch (Exception e) {
             log.error("Error executing send media group request: ", e);
-            throw new IllegalStateException("Failed to execute send media group request", e);
+            throw new AppException("Failed to execute send media group request", e);
         } finally {
             toDelete.forEach(File::delete);
         }
-    }
-
-    public Integer replyToMessage(Integer messageId, String messageText) {
-        return replyToMessage(telegramProperties.getChatId(), messageId, messageText);
     }
 
     @SneakyThrows
@@ -223,7 +202,7 @@ public class TelegramClient implements AutoCloseable {
 
         if (Objects.nonNull(response) && !response.isOk()) {
             log.error("Found mistake: code={}, description={}", response.errorCode(), response.description());
-            throw new IllegalStateException("Error occurred: %s".formatted(objectMapper.writeValueAsString(response)));
+            throw new AppException("Error occurred: %s".formatted(objectMapper.writeValueAsString(response)));
         } else if (Objects.nonNull(response)) {
             log.info("Got success response: id={}, message={}", response.message().messageId(), response.message());
         }

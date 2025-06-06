@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
-<html $endif$ $if(lang)$ lang="$lang$" xml:lang="$lang$"
-      xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops"$if(lang)$ lang="$lang$" xml:lang="$lang$"$endif$>
 <head>
     <meta charset="UTF-8"/>
     <meta content="text/html; charset=utf-8" http-equiv="Content-Type"/>
@@ -37,9 +36,7 @@
     $math$
     $endif$
 </head>
-<body
-$else$ $elseif(titlepage)$$endif$ $endif$$if(coverpage)$$if(coverpage)$ class="cover-page"class="chapter-page"
-class="title-page"id="cover">
+<body$if(coverpage)$ id="cover"$endif$$if(coverpage)$ class="cover-page"$elseif(titlepage)$ class="title-page"$else$ class="chapter-page"$endif$>
 $if(titlepage)$
 <section class="title-page-main" epub:type="titlepage">
     <div class="title-page-content">

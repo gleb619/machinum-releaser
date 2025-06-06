@@ -1,13 +1,17 @@
 package machinum.telegram;
 
+import machinum.exception.AppException;
 import net.fellbaum.jemoji.Emoji;
 import net.fellbaum.jemoji.EmojiManager;
-import net.fellbaum.jemoji.Emojis;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
+
+import static machinum.telegram.TelegramHandler.NameUtil.toFileSnakeCase;
+import static machinum.telegram.TelegramHandler.NameUtil.toSnakeCase;
 
 public class TelegramMessageDSL {
 
@@ -105,7 +109,7 @@ public class TelegramMessageDSL {
         String result = messageBuilder.toString();
 
         if (result.length() > 4096) {
-            throw new IllegalStateException("Message is too big: min=4096, actual=%s".formatted(result.length()));
+            throw new AppException("Message is too big: min=4096, actual=%s".formatted(result.length()));
         }
 
         return result;
@@ -123,7 +127,7 @@ public class TelegramMessageDSL {
 
     public TelegramMessageDSL tags(List<String> values) {
         String text = values.stream()
-                .map(s -> "#" + s.replace(" ", "_").toLowerCase())
+                .map(s -> "#" + toSnakeCase(s))
                 .collect(Collectors.joining(", "));
 
         messageBuilder.append(text);
@@ -175,23 +179,12 @@ public class TelegramMessageDSL {
         return clone;
     }
 
-    public static class Main {
-
-        public static void main(String[] args) {
-            TelegramMessageDSL message = new TelegramMessageDSL(1)
-                    .text("Hello, ")
-                    .bold("world!")
-                    .text(" Here's a ")
-                    .italic("cool")
-                    .text(" message.")
-                    .link("Click here", "https://www.example.com")
-                    .mention("username")
-                    .pre("System.out.println(\"Hello, world!\");", "java")
-                    .emoji(Emojis.THUMBS_UP);
-
-            System.out.println(message.build());
+    public TelegramMessageDSL optionalBlock(Predicate<Void> testFn, Function<TelegramMessageDSL, TelegramMessageDSL> customizer) {
+        if(testFn.test(null)) {
+            return customizer.apply(this);
         }
 
+        return this;
     }
 
 }

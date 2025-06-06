@@ -2,6 +2,7 @@ package machinum.image.cover;
 
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
+import machinum.exception.AppException;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
@@ -118,7 +119,7 @@ public class ImageUpscaler {
          */
         public BufferedImage scaleTo(int targetWidth, int targetHeight) {
             if (imageUpscaler.sourceImage == null) {
-                throw new IllegalStateException("Source image cannot be null");
+                throw new AppException("Source image cannot be null");
             }
 
             var dimensions = imageUpscaler.maintainAspectRatio

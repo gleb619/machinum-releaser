@@ -88,7 +88,10 @@ dependencies {
     implementation 'io.avaje:avaje-validator:2.9'
     annotationProcessor 'io.avaje:avaje-validator-generator:2.9'
 
-    implementation 'com.google.zxing:core:3.5.3'
+    // app
+    implementation 'com.google.zxing:core:3.5.3' //qr
+    implementation 'org.apache.poi:poi:5.3.0' //excel
+    implementation 'org.apache.poi:poi-ooxml:5.3.0'
 
 
     testCompileOnly "org.projectlombok:lombok:$lombokVersion"

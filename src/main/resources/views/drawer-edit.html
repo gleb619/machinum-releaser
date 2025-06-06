@@ -2,7 +2,7 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
 <!-- Layout -->
-<div th:fragment="edit">
+<div th:fragment="edit" th:remove="tag">
 
     <!-- Create/Edit Mode -->
     <div class="space-y-4" x-show="drawerMode == 'edit'">

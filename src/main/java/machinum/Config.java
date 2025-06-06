@@ -48,6 +48,7 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
 import static machinum.util.Util.firstNonNull;
@@ -172,7 +173,8 @@ public class Config implements Extension {
 
         var tgProperties = TelegramProperties.builder()
                 .token(config.getString("telegram.token"))
-                .chatId(config.getString("telegram.chatId"))
+                .testChatId(config.getString("telegram.testChatId"))
+                .mainChatId(config.getString("telegram.mainChatId"))
                 .channelName(config.getString("telegram.channelName"))
                 .channelLink(config.getString("telegram.channelLink"))
                 .build();
@@ -186,8 +188,14 @@ public class Config implements Extension {
         registry.putIfAbsent(ActionsHandler.class, handler);
         registry.putIfAbsent(Scheduler.class, new Scheduler(Executors.newScheduledThreadPool(1), releaseRepository, handler));
 
+        application.onStarted(() -> {
+            application.require(Scheduler.class).init();
+            application.require(CacheService.class)
+                    .scheduleCleanup(1, TimeUnit.HOURS);
+        });
         application.onStop(() -> {
             application.require(Scheduler.class).close();
+            application.require(CacheService.class).close();
             application.require(TelegramClient.class).close();
         });
     }

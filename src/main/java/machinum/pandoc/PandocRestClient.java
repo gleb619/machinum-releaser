@@ -34,6 +34,7 @@ public class PandocRestClient {
 
 
     @SneakyThrows
+    @Synchronized
     public byte[] convertToEpubCached(PandocRequest pandocRequest) {
         return cache.get("epub-" + pandocRequest.getOutputFilename(), () ->
                 convertToEpub(pandocRequest));

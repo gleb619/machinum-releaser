@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import machinum.exception.AppException;
 import machinum.release.Release.ReleaseTarget;
 import machinum.release.Release.ReleaseView;
 import org.jdbi.v3.core.Jdbi;
@@ -42,7 +43,12 @@ public class ReleaseRepository {
     }
 
     public List<Release> findAllToExecute() {
-        return jdbi.withHandle(handle -> handle.createQuery("SELECT * FROM releases WHERE executed is false")
+        return jdbi.withHandle(handle -> handle.createQuery("""
+                SELECT r0.*
+                FROM releases r0 
+                LEFT JOIN release_targets rt0 ON rt0.id = r0.release_target_id 
+                WHERE r0.executed IS FALSE 
+                ORDER BY r0.date, rt0.name""")
                 .mapToBean(Release.class)
                 .list());
     }
@@ -203,7 +209,7 @@ public class ReleaseRepository {
 
         public ReleaseTarget getById(String id) {
             return findById(id)
-                    .orElseThrow(() -> new IllegalStateException("ReleaseTarget for given id is not found: " + id));
+                    .orElseThrow(() -> new AppException("ReleaseTarget for given id is not found: " + id));
         }
 
         public Optional<ReleaseTarget> findById(String id) {

@@ -4,6 +4,7 @@ import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
+import machinum.exception.AppException;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -85,7 +86,7 @@ public class Util {
             public Function<List<T>, Pair<T, T>> finisher() {
                 return list -> {
                     if (list.size() < 2) {
-                        throw new IllegalStateException("Expected exactly 2 elements, but got " + list.size());
+                        throw new AppException("Expected exactly 2 elements, but got " + list.size());
                     }
                     return new Pair<>(list.get(0), list.get(1));
                 };

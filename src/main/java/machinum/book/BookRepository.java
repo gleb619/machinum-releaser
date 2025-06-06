@@ -2,6 +2,7 @@ package machinum.book;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import machinum.exception.AppException;
 import org.jdbi.v3.core.Jdbi;
 
 import java.time.LocalDateTime;
@@ -34,7 +35,7 @@ public class BookRepository {
 
     public Book getById(String id) {
         return findById(id)
-                .orElseThrow(() -> new IllegalStateException("Book for given id is not found: " + id));
+                .orElseThrow(() -> new AppException("Book for given id is not found: " + id));
     }
 
     public Optional<Book> findById(String id) {

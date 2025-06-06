@@ -25,7 +25,6 @@ import machinum.exception.AppException;
 import machinum.image.ImageController_;
 import machinum.image.ImageRepository;
 import machinum.image.cover.CoverService;
-import machinum.release.ReleaseController_;
 import machinum.scheduler.Scheduler;
 import org.slf4j.Logger;
 
@@ -34,6 +33,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static machinum.Config.changeLogLevel;
+import static machinum.release.ReleaseController.releaseController;
 import static machinum.util.Util.hasCause;
 
 @Slf4j
@@ -89,22 +89,12 @@ public class App extends Jooby {
         install(new Config());
         mvc(new BookController_());
         mvc(new ImageController_(require(ImageRepository.class), require(CoverService.class)));
-        mvc(new ReleaseController_());
+        mvc(releaseController(this));
 
         get("/", ctx -> new MapModelAndView("index.html", Map.of()));
 
         AssetSource web = AssetSource.create(Paths.get("src/main/resources/web"));
         assets("/?*", new AssetHandler("index.html", web));
-
-        onStarted(() -> {
-            require(Scheduler.class).init();
-            require(CacheService.class)
-                    .scheduleCleanup(1, TimeUnit.HOURS);
-        });
-        onStop(() -> {
-            require(Scheduler.class).close();
-            require(CacheService.class).close();
-        });
     }
 
     public static void main(final String[] args) {

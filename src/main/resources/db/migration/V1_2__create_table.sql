@@ -75,5 +75,4 @@ CREATE TABLE IF NOT EXISTS releases (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-ALTER TABLE release_targets ADD CONSTRAINT release_targets_uq UNIQUE (book_id, "name");
 ALTER TABLE releases ADD CONSTRAINT releases_uq UNIQUE (release_target_id, "date");

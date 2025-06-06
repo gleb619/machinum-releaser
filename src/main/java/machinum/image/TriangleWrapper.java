@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.SneakyThrows;
 import lombok.Value;
+import machinum.exception.AppException;
 
 import java.io.File;
 import java.io.IOException;
@@ -91,7 +92,7 @@ public class TriangleWrapper {
 
         var binaryFile = new File(this.binaryPath).getCanonicalFile();
         if (!binaryFile.exists()) {
-            throw new IllegalStateException("File not found, please install one for Delaunay triangulation: %s".formatted(
+            throw new AppException("File not found, please install one for Delaunay triangulation: %s".formatted(
                     binaryFile.getAbsolutePath()));
         }
 

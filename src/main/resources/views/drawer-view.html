@@ -2,7 +2,7 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
 <!-- Layout -->
-<div th:fragment="view">
+<div th:fragment="view" th:remove="tag">
 
     <div x-show="drawerMode == 'view' && selectedBook">
         <div class="flex justify-center">
@@ -90,6 +90,15 @@
             <h3 class="text-sm font-medium text-gray-500">Description</h3>
             <p class="mt-1 whitespace-pre-line" x-text="selectedBook?.description"></p>
         </div>
+
+        <hr class="h-px my-8 bg-gray-200 border-0 dark:bg-gray-700">
+
+        <button
+                class="bg-blue-500 hover:bg-blue-700 text-white text-sm font-bold py-2 px-4 rounded"
+                @click="copyBookMarkdownToClipboard()">
+            Copy Book Markdown
+        </button>
+
     </div>
 
 </div>

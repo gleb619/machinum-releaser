@@ -19,6 +19,7 @@ public class ReleaseScheduleGenerator {
                 .createdAt(LocalDateTime.now())
                 .bookId(bookId)
                 .name(settings.getName())
+                .metadata(settings.getMetadata())
                 .build();
     }
 

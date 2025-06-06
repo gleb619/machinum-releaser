@@ -4,6 +4,7 @@ const startTime = new Date().getTime();
 import { initApp } from './init.js';
 import { utilsApp } from './core.js';
 import { listApp } from './list.js';
+import { viewApp } from './view.js';
 import { editApp } from './edit.js';
 import { releaseApp } from './release.js';
 import { chartApp } from './chart.js';
@@ -22,6 +23,7 @@ export function app() {
             {
                 ...Object.getOwnPropertyDescriptors(utilsApp()),
                 ...Object.getOwnPropertyDescriptors(listApp()),
+                ...Object.getOwnPropertyDescriptors(viewApp()),
                 ...Object.getOwnPropertyDescriptors(editApp()),
                 ...Object.getOwnPropertyDescriptors(releaseApp()),
                 ...Object.getOwnPropertyDescriptors(chartApp()),

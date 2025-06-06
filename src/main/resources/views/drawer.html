@@ -4,19 +4,28 @@
 <!-- Layout -->
 <div th:fragment="drawer" th:remove="tag">
 
+    <div @click.away="drawerOpen = false">
+
+    <template x-if="drawerOpen && drawerMode === 'releases' && isReleaseFormOpen">
+        <!-- Releases mode -->
+        <div th:remove="tag" th:replace="~{drawer-release-preview::release}">
+            <p>
+                Here placed content of views/drawer-release.html page, tag `th:fragment="release"`
+            </p>
+        </div>
+    </template>
+
     <!-- Drawer -->
     <div
-            @click.away="drawerOpen = false"
-            class="fixed inset-y-0 right-0 max-w-xl w-full bg-white shadow-xl overflow-y-auto"
-            style="z-index: 20;"
+            class="fixed inset-y-0 right-0 max-w-xl w-full bg-white shadow-xl overflow-y-auto z-20"
             x-show="drawerOpen"
             x-transition:enter="transform transition ease-in-out duration-100"
             x-transition:enter-end="translate-x-0"
             x-transition:enter-start="translate-x-full"
             x-transition:leave="transform transition ease-in-out duration-100"
             x-transition:leave-end="translate-x-full"
-            x-transition:leave-start="translate-x-0"
-    >
+            x-transition:leave-start="translate-x-0">
+
         <div class="p-6">
             <div class="flex items-center justify-between mb-6">
                 <h2 class="text-2xl font-bold" x-text="selectedBook?.ruName || 'Create New Book'"></h2>
@@ -38,35 +47,35 @@
             </div>
 
             <!-- View Detail Mode -->
-            <div th:replace="~{drawer-view::view}">
+            <div th:remove="tag" th:replace="~{drawer-view::view}">
                 <p>
                     Here placed content of views/drawer-view.html page, tag `th:fragment="view"`
                 </p>
             </div>
 
             <!-- Create/Edit Mode -->
-            <div th:replace="~{drawer-edit::edit}">
+            <div th:remove="tag" th:replace="~{drawer-edit::edit}">
                 <p>
                     Here placed content of views/drawer-edit.html page, tag `th:fragment="edit"`
                 </p>
             </div>
 
             <!-- Releases mode -->
-            <div th:replace="~{drawer-release::release}">
+            <div th:remove="tag" th:replace="~{drawer-release::release}">
                 <p>
                     Here placed content of views/drawer-release.html page, tag `th:fragment="release"`
                 </p>
             </div>
         </div>
     </div>
+    </div>
 
     <!-- Overlay when drawer is open -->
     <div
             @click="drawerOpen = false"
-            class="fixed inset-0 bg-black bg-opacity-50"
-            style="z-index: 10;"
-            x-show="drawerOpen"
-    ></div>
+            class="fixed inset-0 bg-black bg-opacity-50 z-10"
+            x-show="drawerOpen">
+    </div>
 
 </div>
 </body>

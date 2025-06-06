@@ -2,7 +2,7 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
 <!-- Layout -->
-<div th:fragment="release">
+<div th:fragment="release" th:remove="tag">
 
     <!-- Releases View mode -->
     <div x-show="selectedBook && drawerMode === 'releases'">
@@ -56,11 +56,11 @@
             <h3 class="text-lg font-medium mb-4"
                 x-text="currentRelease.id ? 'Edit Release' : 'Create New Release'"></h3>
 
-            <form @submit.prevent="generateSchedule" class="space-y-6">
+            <form @submit.prevent="generateSchedule(true)" class="space-y-6">
                 <div>
                     <label class="block text-sm font-medium text-gray-700">Target Platform</label>
                     <div class="mt-1 relative">
-                        <select class="focus:ring-blue-500 focus:border-blue-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md p-2"
+                        <select class="block w-full px-4 py-2 mt-1 text-base leading-tight text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:shadow-outline-blue focus:border-blue-300 sm:text-sm sm:leading-5"
                                 required
                                 x-model="currentSchedule.name">
                             <!--/* Note, that these names is hardcoded on backend side, do not delete/change them */-->
@@ -166,6 +166,23 @@
                     <small class="mt-2 text-sm text-grey-300 opacity-75 italic">Amount of 'waves/peaks'.</small>
                 </div>
 
+                <hr class="h-px my-8 bg-gray-200 border-0 dark:bg-gray-700">
+
+                <template x-if="currentSchedule.name == 'Telegram'">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700" for="periodCount">Chat type</label>
+                        <select class="block w-full px-4 py-2 mt-1 text-base leading-tight text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:shadow-outline-blue focus:border-blue-300 sm:text-sm sm:leading-5"
+                                required
+                                x-model="currentSchedule.metadata['chatType']">
+                            <option disabled value="">Select a release type</option>
+                            <option value="MAIN">Main</option>
+                            <option value="TEST">Test</option>
+                        </select>
+
+                        <small class="mt-2 text-sm text-grey-300 opacity-75 italic">Specify the chat with which you will interact.</small>
+                    </div>
+                </template>
+
                 <div class="flex justify-end space-x-3 pt-5">
                     <button @click.prevent="isReleaseFormOpen = !isReleaseFormOpen" class="rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
                             type="button">
@@ -173,7 +190,7 @@
                     </button>
                     <button class="inline-flex justify-center rounded-md border border-transparent bg-blue-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
                             type="submit">
-                        Save
+                        <span x-text="(previewReleases?.length > 0) ? 'Save preview' : 'Save'"></span>
                     </button>
                 </div>
             </form>

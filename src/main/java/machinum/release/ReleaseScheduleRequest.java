@@ -7,6 +7,8 @@ import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
 import java.time.LocalDate;
+import java.util.HashMap;
+import java.util.Map;
 
 @Valid
 @Data
@@ -56,6 +58,10 @@ public class ReleaseScheduleRequest {
 
     @Getter(lazy = true)
     private final int periods = (int) Math.max(1, getAmountOfChapters() / (getAmountOfChapters() / getPeriodCount()));
+
+    @NotNull
+    @Builder.Default
+    private Map<String, Object> metadata = new HashMap<>();
 
     public int getStart() {
         return (int) (amountOfChapters * startBulk);

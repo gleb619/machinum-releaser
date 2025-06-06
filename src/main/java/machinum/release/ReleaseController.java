@@ -2,9 +2,12 @@ package machinum.release;
 
 import io.avaje.validation.Validator;
 import io.jooby.Context;
+import io.jooby.Jooby;
 import io.jooby.StatusCode;
 import io.jooby.annotation.*;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import machinum.exception.AppException;
 import machinum.release.Release.ReleaseView;
 import machinum.release.ReleaseRepository.ReleaseTargetRepository;
 import machinum.scheduler.Scheduler;
@@ -14,55 +17,58 @@ import java.util.List;
 
 @Slf4j
 @Path("/api")
+@RequiredArgsConstructor
 public class ReleaseController {
 
+    private final ReleaseRepository repository;
+    private final ReleaseTargetRepository targetRepository;
+    private final Validator validator;
+    private final ReleaseScheduleGenerator generator;
+    private final Scheduler scheduler;
+
     @POST("/books/{bookId}/generate-release")
-    public void generateRelease(@PathParam("bookId") String bookId, Context ctx, ReleaseScheduleRequest settings) {
-        var generator = ctx.require(ReleaseScheduleGenerator.class);
-        var validator = ctx.require(Validator.class);
-        var targetRepository = ctx.require(ReleaseTargetRepository.class);
-        var repository = ctx.require(ReleaseRepository.class);
+    public void generateRelease(@PathParam("bookId") String bookId,
+                                @QueryParam("preview") Boolean preview,
+                                Context ctx,
+                                ReleaseScheduleRequest settings) {
         validator.validate(settings);
-        var target = generator.createTarget(bookId, settings);
-        var targetId = targetRepository.create(target);
 
-        try {
-            var schedule = generator.generate(targetId, settings);
+        if(Boolean.TRUE.equals(preview)) {
+            ctx.setResponseCode(StatusCode.ACCEPTED);
+            ctx.render(generator.generate("-1", settings));
+        } else {
+            var target = generator.createTarget(bookId, settings);
+            var targetId = targetRepository.create(target);
+            try {
+                var schedule = generator.generate(targetId, settings);
+                repository.create(schedule);
 
-            repository.create(schedule);
-        } catch (Exception e) {
-            targetRepository.delete(targetId);
-            throw new RuntimeException(e);
+                ctx.setResponseCode(StatusCode.OK);
+            } catch (Exception e) {
+                targetRepository.delete(targetId);
+                throw new AppException("Can't generate schedule", e);
+            }
         }
-
-        ctx.setResponseCode(StatusCode.OK);
     }
 
     @GET("/books/{bookId}/releases")
     public List<ReleaseView> getBookReleases(@PathParam("bookId") String bookId, Context ctx) {
-        var repository = ctx.require(ReleaseTargetRepository.class);
-        return repository.findReleasesByBookId(bookId);
+        return targetRepository.findReleasesByBookId(bookId);
     }
 
     @GET("/books/{bookId}/schedule")
     public List<Release> getReleaseSchedule(@PathParam("bookId") String bookId, Context ctx) {
-        var repository = ctx.require(ReleaseRepository.class);
         return repository.findByBookId(bookId);
     }
 
     @DELETE("/releases/{id}")
     public StatusCode deleteRelease(@PathParam String id, Context ctx) {
-        var repository = ctx.require(ReleaseTargetRepository.class);
-
-        var result = repository.delete(id);
+        var result = targetRepository.delete(id);
         return result ? StatusCode.NO_CONTENT : StatusCode.NOT_FOUND;
     }
 
     @POST("/releases/{id}/execute")
     public void createRelease(@PathParam String id, Context ctx) {
-        var repository = ctx.require(ReleaseRepository.class);
-        var scheduler = ctx.require(Scheduler.class);
-
         var value = repository.findById(id);
         value.ifPresent(release ->
                 scheduler.executeAsync(release.copy(b -> b.date(LocalDate.now()))));
@@ -126,4 +132,13 @@ public class ReleaseController {
         return result ? StatusCode.NO_CONTENT : StatusCode.NOT_FOUND;
     }
     */
+
+    public static ReleaseController_ releaseController(Jooby jooby) {
+        return new ReleaseController_(jooby.require(ReleaseRepository.class),
+                jooby.require(ReleaseTargetRepository.class),
+                jooby.require(Validator.class),
+                jooby.require(ReleaseScheduleGenerator.class),
+                jooby.require(Scheduler.class));
+    }
+
 }
