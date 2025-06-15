@@ -60,6 +60,7 @@ CREATE TABLE IF NOT EXISTS release_targets (
     id VARCHAR(36) PRIMARY KEY DEFAULT gen_random_uuid(),
     book_id VARCHAR(36) NOT NULL REFERENCES books(id),
     name VARCHAR(255) NOT NULL,
+    enabled BOOLEAN NOT NULL,
     metadata JSON,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
