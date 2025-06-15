@@ -58,10 +58,10 @@
                     <label class="block text-sm font-medium text-gray-700 mb-1">Target Filter</label>
                     <select @change="persistFilters()"
                             class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            x-model="filters.targetName">
+                            x-model="filters.targetId">
                         <option value="">All Targets</option>
-                        <template :key="target" x-for="target in uniqueTargets">
-                            <option :value="target" x-text="target"></option>
+                        <template :key="`${target.releaseTargetId}-${index}`" x-for="(target, index) in uniqueTargets">
+                            <option :value="target.releaseTargetId" x-text="target.releaseTargetName"></option>
                         </template>
                     </select>
                 </div>
@@ -125,7 +125,9 @@
                                 </div>
                             </td>
                             <td class="py-2 px-4 border-b">
-                            <span :class="getDateClass(release.date, release.executed)" x-show="!release.editing"
+                            <span :class="getDateClass(release.date, release.executed)"
+                                  x-show="!release.editing"
+                                  x-bind:title="`${daysDiff(release.date)} days diff`"
                                   x-text="release.date"
                             ></span>
                                 <input
@@ -135,8 +137,10 @@
                                         x-show="release.editing"
                                 >
                             </td>
-                            <td class="py-2 px-4 border-b">
-                                <span x-show="!release.editing" x-text="release.chapters"></span>
+                            <td class="py-2 px-4 border-b text-gray-400">
+                                <span x-show="!release.editing">
+                                    <span class="text-black mr-2" x-text="release.chapters"></span> <span class="text-xs hover:text-gray-700" x-text="`(${release?.metadata?.pages} chapters)`"></span>
+                                </span>
                                 <input
                                         class="border border-gray-300 rounded px-2 py-1 w-16"
                                         min="1"

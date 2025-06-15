@@ -1,32 +1,5 @@
 export function utilsApp() {
   return {
-      debounce(callback, delay = 300) {
-          let timeoutId;
-
-          const debounced = function(...args) {
-              var context = this;
-              clearTimeout(timeoutId);
-
-              timeoutId = setTimeout(() => callback.apply(context, args), delay);
-          };
-
-          debounced.cancel = function() {
-              clearTimeout(timeoutId);
-          };
-
-          return debounced;
-      },
-
-      withDebounce(key, fn, delay) {
-          if(this[key]) {
-              this[key].cancel();
-              this[key] = undefined;
-          }
-
-          this[key] = debounce(fn, delay);
-          this[key]();
-      },
-
       showToast(message, isError = false) {
           Toastify({
               text: message,
@@ -50,14 +23,23 @@ export function utilsApp() {
         this[name] = !!currValue;
       },
 
+      backupValue(name, newValue) {
+        const valueToStore = typeof newValue === 'object' ? JSON.stringify(newValue) : newValue;
+        localStorage.setItem(name, valueToStore);
+      },
+
       changeValue(name, newValue) {
-        localStorage.setItem(name, newValue);
+        this.backupValue(name, newValue);
         this[name] = newValue;
       },
 
       loadValue(name, defaultValue) {
         const currValue = localStorage.getItem(name);
-        this[name] = currValue || defaultValue;
-      }
+        try {
+          this[name] = JSON.parse(currValue) || defaultValue;
+        } catch (e) {
+          this[name] = currValue || defaultValue;
+        }
+      },
   }
 }

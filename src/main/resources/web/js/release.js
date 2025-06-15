@@ -16,7 +16,7 @@ export function releaseApp() {
     },
     targetReleaseId: null,
     currentSchedule: {
-        releaseTargetName: '',
+        name: '',
         startDate: new Date().toISOString().split('T')[0],
         dayThreshold: 4,
         amountOfChapters: 0,
@@ -31,6 +31,15 @@ export function releaseApp() {
         metadata: {}
     },
     previewReleases: [],
+
+    initRelease() {
+        this.loadValue('currentSchedule', this.currentSchedule);
+    },
+
+    get resolveCurrentSchedule() {
+        const {name, startDate, dayThreshold, startBulk, endBulk, minChapters, maxChapters, peakWidth, smoothFactor, randomFactor, periodCount, ...other} = this.currentSchedule;
+        return { name, startDate, dayThreshold, amountOfChapters: 0, startBulk, endBulk, minChapters, maxChapters, peakWidth, smoothFactor, randomFactor, periodCount, metadata: {} };
+    },
 
     releaseBook(book) {
         if(!book) {
@@ -154,7 +163,10 @@ export function releaseApp() {
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify(this.currentSchedule)
+            body: JSON.stringify({
+                settings: this.currentSchedule,
+                releases: this.previewReleases
+            })
         })
             .then(response => {
                 if(preview) {
@@ -256,11 +268,19 @@ export function releaseApp() {
     },
 
     previewAddRelease() {
+        let releaseDate = Date.now();
+        let releaseTargetId = '-1';
+        if(this.previewReleases.length > 0) {
+            const lastItem = this.previewReleases[this.previewReleases.length - 1];
+            releaseDate = addDays(lastItem.date, this.currentSchedule.dayThreshold);
+            releaseTargetId = lastItem.releaseTargetId;
+        }
+
         const newRelease = {
             id: Date.now().toString(),
             releaseTargetName: '',
-            releaseTargetId: '',
-            date: '',
+            releaseTargetId: releaseTargetId,
+            date: releaseDate.toISOString().split('T')[0],
             chapters: 1,
             executed: false,
             metadata: {},
@@ -270,6 +290,16 @@ export function releaseApp() {
         };
         this.previewReleases.push(newRelease);
         this.previewUpdateChart();
+    },
+
+    get surplus() {
+        return (this.currentSchedule.amountOfChapters - this.previewTotalChapters)
+    },
+
+    previewSpreadRemaining() {
+        const surplus = this.surplus;
+        this.previewAddRelease();
+        this.previewReleases[this.previewReleases.length - 1].chapters = surplus;
     },
 
     previewRemoveRelease(index) {
@@ -295,6 +325,7 @@ export function releaseApp() {
         // Trigger reactivity and update chart
         this.$nextTick(() => {
             this.previewUpdateChart();
+            this.updatePreviewMetadata();
         });
     },
 
@@ -311,5 +342,19 @@ export function releaseApp() {
         delete this.previewReleases[releaseIndex].metadata[key];
     },
 
+    updatePreviewMetadata() {
+        let chapters = 1;
+        this.previewReleases.forEach(previewRelease => {
+            previewRelease.metadata['pages'] = `${chapters} - ${chapters + previewRelease.chapters - 1}`
+            chapters += previewRelease.chapters;
+        });
+    },
+
   };
+}
+
+function addDays(date, days) {
+  var result = new Date(date);
+  result.setDate(result.getDate() + days);
+  return result;
 }

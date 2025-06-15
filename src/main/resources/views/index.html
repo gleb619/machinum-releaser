@@ -4,17 +4,30 @@
     <meta charset="UTF-8">
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
     <title>Schedule</title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/toastify-js/1.12.0/toastify.min.css" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"
+          rel="stylesheet"
+          th:href="@{~/assets/css/tailwindcss.min.css(url='https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css')}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/toastify-js/1.12.0/toastify.min.css"
+          rel="stylesheet"
+          th:href="@{~/assets/css/toastify.min.css(url='https://cdnjs.cloudflare.com/ajax/libs/toastify-js/1.12.0/toastify.min.css')}">
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"
+            th:src="@{~/assets/js/chart.umd.min.js(url='https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js')}"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"
+            th:src="@{~/assets/js/html2canvas.min.js(url='https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js')}"></script>
 
     <script defer type="module">
-        import Alpine from 'https://unpkg.com/alpinejs@3.14.9/dist/module.esm.min.js'
+        //import Alpine from 'https://unpkg.com/alpinejs@3.14.9/dist/module.esm.min.js';
+        import Alpine from '[[@{~/assets/js/alpine.esm.min.js(url='https://unpkg.com/alpinejs@3.14.9/dist/module.esm.min.js')}]]';
 
-        window.Alpine = Alpine
+        window.Alpine = Alpine;
     </script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/toastify-js/1.12.0/toastify.min.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/toastify-js/1.12.0/toastify.min.js"
+            th:src="@{~/assets/js/toastify.min.js(url='https://cdnjs.cloudflare.com/ajax/libs/toastify-js/1.12.0/toastify.min.js')}"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mousetrap"
+            th:src="@{~/assets/js/mousetrap.min.js(url='https://cdn.jsdelivr.net/npm/mousetrap')}"></script>
+
     <script src="/js/script.js" type="module"></script>
     <link href="/css/style.css" rel="stylesheet">
 </head>

@@ -5,11 +5,11 @@
 <div th:fragment="chart" th:remove="tag">
 
     <!-- Loading indicator -->
-    <div class="flex justify-center items-center h-40 py-5" x-show="loading">
+    <div class="flex justify-center items-center h-40 py-5" x-show="scheduleLoading">
         <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
     </div>
 
-    <div class="bg-white p-4 rounded-lg shadow-mdpy-5" x-show="!loading">
+    <div class="bg-white p-4 rounded-lg shadow-mdpy-5" x-show="!scheduleLoading">
 
         <div class="overflow-x-auto">
             <table class="min-w-full bg-white border border-gray-300">
@@ -66,9 +66,9 @@
     </div>
 
     <!-- Individual target charts -->
-    <div class="py-5" x-show="!loading">
+    <div class="py-5" x-show="!scheduleLoading">
         <!-- Combined chart -->
-        <div class="bg-white p-4 rounded-lg shadow-md mb-6" x-show="!loading">
+        <div class="bg-white p-4 rounded-lg shadow-md mb-6" x-show="!scheduleLoading">
             <h2 class="text-xl font-semibold mb-2">All Release Targets</h2>
             <div class="flex justify-end mb-2">
                 <button @click="downloadChart('combinedChart')"

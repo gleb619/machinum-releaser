@@ -2,9 +2,9 @@ export function managementApp() {
   return {
 
     releasesSchedule: [],
-    loading: true,
+    scheduleLoading: true,
     filters: {
-        targetName: '',
+        targetId: '',
         status: '',
         date: '',
         sortBy: 'date'
@@ -31,7 +31,7 @@ export function managementApp() {
             return;
         }
 
-        this.loading = true;
+        this.scheduleLoading = true;
         try {
             const response = await fetch(`/api/books/${bookId}/schedule`);
             if (!response.ok) {
@@ -39,11 +39,11 @@ export function managementApp() {
             }
             this.releasesSchedule = await response.json();
             this.afterFetchSchedule();
-            this.loading = false;
+            this.scheduleLoading = false;
         } catch (error) {
             console.error("error: ", error);
             this.showToast('Failed to load schedule: ' + error.message, true);
-            this.loading = false;
+            this.scheduleLoading = false;
         }
     },
     
@@ -53,19 +53,20 @@ export function managementApp() {
     },
 
     get uniqueTargets() {
-        const targets = new Set();
-        this.releasesSchedule.forEach(release => {
-            targets.add(release.releaseTargetName);
-        });
-        return [...targets].sort();
+        const targets = [];
+        return Array.from(this.releasesSchedule
+            .map(({ releaseTargetId, releaseTargetName }) => ({ releaseTargetId, releaseTargetName }))
+            .reduce((map, obj) => map.set(obj.releaseTargetId, obj), new Map())
+            .values()
+        ).sort((a, b) => a.releaseTargetName.localeCompare(b.releaseTargetName));
     },
 
     get filteredReleases() {
         let filtered = [...this.releasesSchedule];
 
         // Filter by target
-        if (this.filters.targetName) {
-            filtered = filtered.filter(r => r.releaseTargetName === this.filters.targetName);
+        if (this.filters.targetId) {
+            filtered = filtered.filter(r => r.releaseTargetId === this.filters.targetId);
         }
 
         // Filter by status
@@ -153,10 +154,30 @@ export function managementApp() {
     },
 
     // Mark release as executed
-    markAsExecuted(release) {
+     async markAsExecuted(release) {
         if(!release) return;
-        // In a real app, you would call an API to update the release
-        release.executed = true;
+
+        release.executed = !release.executed;
+
+        try {
+          const response = await fetch(`/api/releases/${release.id}/executed`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          });
+
+          if (response.status === 204) {
+            this.showToast('Flag updated successfully');
+          } else if (response.status === 404) {
+            this.showToast('Release not found', false);
+          } else {
+            this.showToast('Unexpected response:' + response.status, true);
+          }
+        } catch (error) {
+          console.error('Request failed:', error);
+          this.showToast('Error on changing execution flag: ' + error.message, true);
+        }
 
         this.processCharts();
     },
@@ -216,6 +237,12 @@ export function managementApp() {
         console.error('Error schedule execution:', error);
         this.showToast('Error schedule execution: ' + error.message, true);
       }
+    },
+
+    daysDiff(inputDate) {
+      const today = new Date(new Date().toISOString().split('T')[0]);
+      const input = new Date(inputDate);
+      return Math.abs(Math.ceil((input - today) / (1000 * 60 * 60 * 24)));
     },
 
   };

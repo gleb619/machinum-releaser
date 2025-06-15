@@ -10,6 +10,7 @@ import { releaseApp } from './release.js';
 import { chartApp } from './chart.js';
 import { managementApp } from './management.js';
 import { comboboxApp } from './components/title-selector.js';
+import { initScraperDirective } from './directive/scraper-directive.js';
 
 /**
  * Creates the main application with combined functionality
@@ -45,6 +46,7 @@ document.addEventListener("DOMContentLoaded", function(event) {
     const elapsedTime = currentTime - startTime;
     const remainingTime = Math.max(10, 500 - elapsedTime);
 
+    initScraperDirective();
     Alpine.data('app', app);
     Alpine.start();
 

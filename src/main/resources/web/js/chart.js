@@ -26,18 +26,19 @@ export function chartApp() {
         // Group releasesSchedule by target name
         const targets = {};
         this.releasesSchedule.forEach(release => {
-            if (!targets[release.releaseTargetName]) {
-                targets[release.releaseTargetName] = [];
+            if (!targets[release.releaseTargetId]) {
+                targets[release.releaseTargetId] = [];
             }
-            targets[release.releaseTargetName].push(release);
+            targets[release.releaseTargetId].push(release);
         });
 
         // Create charts for each target
         let chartIndex = 0;
-        for (const [targetName, releasesSchedule] of Object.entries(targets)) {
+        for (const [targetId, releasesSchedule] of Object.entries(targets)) {
             const canvasId = `chart-${chartIndex}`;
+            const releaseSchedule = this.releasesSchedule.find(item => item.releaseTargetId === targetId);
             this.targetCharts.push({
-                targetName,
+                targetName: releaseSchedule.releaseTargetName,
                 canvasId,
                 releasesSchedule
             });

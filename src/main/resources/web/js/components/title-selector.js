@@ -65,7 +65,7 @@ export function comboboxApp() {
             return;
         }
 
-        if (this.highlightedComboboxIndex < this.filteredComboboxOptions().length - 1) {
+        if (this.highlightedComboboxIndex < this.filteredComboboxOptions.length - 1) {
             this.highlightedComboboxIndex++;
         }
     },
@@ -77,9 +77,9 @@ export function comboboxApp() {
     },
 
     selectComboboxHighlighted() {
-        if (this.highlightedComboboxIndex >= 0 && this.highlightedComboboxIndex < this.filteredComboboxOptions().length) {
-            this.selectComboboxOption(this.filteredComboboxOptions()[this.highlightedComboboxIndex]);
-        } else if (this.filteredComboboxOptions().length === 0 && this.comboboxInputValue) {
+        if (this.highlightedComboboxIndex >= 0 && this.highlightedComboboxIndex < this.filteredComboboxOptions.length) {
+            this.selectComboboxOption(this.filteredComboboxOptions[this.highlightedComboboxIndex]);
+        } else if (this.filteredComboboxOptions.length === 0 && this.comboboxInputValue) {
             // Allow custom entry
             this.selectedComboboxOption = this.comboboxInputValue;
             this.comboboxOpen = false;

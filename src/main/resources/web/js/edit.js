@@ -5,23 +5,10 @@ export function editApp() {
     isUploading: false,
     genreInput: '',
     tagInput: '',
-    newBook: {
-      ruName: '',
-      enName: '',
-      originName: '',
-      link: '',
-      linkText: '',
-      type: '',
-      genre: [],
-      tags: [],
-      year: null,
-      chapters: null,
-      author: '',
-      description: '',
-      imageId: '00000000-0000-0000-0000-000000000000',
-      originImageId: '00000000-0000-0000-0000-000000000000',
-    },
-  
+    newBook: {},
+    showImportModal: false,
+    remoteUrl: '',
+
     openCreateDrawer() {
       this.resetNewBook();
       this.drawerMode = 'edit';
@@ -42,8 +29,8 @@ export function editApp() {
         chapters: null,
         author: '',
         description: '',
-        imageId: null,
-        originImageId: null,
+        imageId: '00000000-0000-0000-0000-000000000000',
+        originImageId: '00000000-0000-0000-0000-000000000000',
       };
       this.genreInput = '';
       this.tagInput = '';
@@ -181,6 +168,30 @@ export function editApp() {
             document.getElementById('originImageUpload').value = '';
         }
     },
+
+    async importFromRemote() {
+        if (!this.remoteUrl) return;
+
+        try {
+            const escapedUrl = encodeURIComponent(this.remoteUrl);
+            const response = await fetch(`/api/books/remote-import?url=${escapedUrl}`);
+
+            if (response.ok) {
+                const data = await response.json();
+                this.newBook = data;
+                this.showImportModal = false;
+            } else {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+        } catch (error) {
+             console.error('Error book importing:', error);
+            this.showToast('Failed to import book: ' + error.message, true);
+        }
+    },
+
+    handleScraperResult(event) {
+        console.info("event: ", event);
+    }
 
   };
 }
