@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import io.avaje.validation.Validator;
 import io.jooby.Extension;
 import io.jooby.Jooby;
+import io.jooby.ServiceKey;
 import lombok.extern.slf4j.Slf4j;
 import machinum.book.BookRepository;
 import machinum.book.BookRestClient;
@@ -187,6 +188,10 @@ public class Config implements Extension {
         var handler = new ActionsHandler(tgHandler, releaseRepository, targetRepository, bookRepository);
         registry.putIfAbsent(ActionsHandler.class, handler);
         registry.putIfAbsent(Scheduler.class, new Scheduler(Executors.newScheduledThreadPool(1), releaseRepository, handler));
+        registry.putIfAbsent(ServiceKey.key(HttpClient.class, "assets"), HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(300))
+                .followRedirects(HttpClient.Redirect.NORMAL)
+                .build());
 
         application.onStarted(() -> {
             application.require(Scheduler.class).init();
