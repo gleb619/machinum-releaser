@@ -48,6 +48,7 @@ public class ReleaseRepository {
                 FROM releases r0 
                 LEFT JOIN release_targets rt0 ON rt0.id = r0.release_target_id 
                 WHERE r0.executed IS FALSE 
+                AND rt0.enabled IS TRUE
                 ORDER BY r0.date, rt0.name""")
                 .mapToBean(Release.class)
                 .list());
@@ -243,8 +244,8 @@ public class ReleaseRepository {
         @SneakyThrows
         public String create(ReleaseTarget releaseTarget) {
             return jdbi.withHandle(handle -> handle.createUpdate("""
-                                INSERT INTO release_targets (book_id, name, metadata, created_at)
-                                VALUES (:bookId, :name, CAST(:metadataString AS JSON), :createdAt)
+                                INSERT INTO release_targets (book_id, name, enabled, metadata, created_at)
+                                VALUES (:bookId, :name, :enabled, CAST(:metadataString AS JSON), :createdAt)
                                 RETURNING id
                             """)
                     .bindBean(releaseTarget)

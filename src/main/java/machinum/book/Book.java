@@ -59,6 +59,9 @@ public class Book {
     private String imageId;
     @NotNull
     @NotEmpty
+    private String imageData;
+    @NotNull
+    @NotEmpty
     private String originImageId;
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();

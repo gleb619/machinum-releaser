@@ -119,7 +119,7 @@ public class TriangleWrapper {
         int exitCode = process.waitFor();
 
         if (exitCode != 0) {
-            throw new RuntimeException("Triangle binary execution failed with exit code: " + exitCode);
+            throw new AppException("Triangle binary execution failed with exit code: " + exitCode);
         }
     }
 

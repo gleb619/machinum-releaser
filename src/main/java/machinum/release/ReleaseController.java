@@ -13,7 +13,9 @@ import machinum.release.ReleaseRepository.ReleaseTargetRepository;
 import machinum.scheduler.Scheduler;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 
 @Slf4j
 @Path("/api")
@@ -30,12 +32,26 @@ public class ReleaseController {
     public void generateRelease(@PathParam("bookId") String bookId,
                                 @QueryParam("preview") Boolean preview,
                                 Context ctx,
-                                ReleaseScheduleRequest settings) {
+                                ScheduleRequest scheduleRequest) {
+        var settings = scheduleRequest.settings();
         validator.validate(settings);
 
         if(Boolean.TRUE.equals(preview)) {
             ctx.setResponseCode(StatusCode.ACCEPTED);
             ctx.render(generator.generate("-1", settings));
+        } else if(Objects.nonNull(scheduleRequest.releases())) {
+            var target = generator.createTarget(bookId, settings);
+            var targetId = targetRepository.create(target);
+
+            try {
+                scheduleRequest.releases().forEach(r -> r.setReleaseTargetId(targetId));
+                repository.create(scheduleRequest.releases());
+
+                ctx.setResponseCode(StatusCode.OK);
+            } catch (Exception e) {
+                targetRepository.delete(targetId);
+                throw new AppException("Can't generate schedule", e);
+            }
         } else {
             var target = generator.createTarget(bookId, settings);
             var targetId = targetRepository.create(target);
@@ -62,13 +78,13 @@ public class ReleaseController {
     }
 
     @DELETE("/releases/{id}")
-    public StatusCode deleteRelease(@PathParam String id, Context ctx) {
+    public StatusCode deleteRelease(@PathParam("id") String id, Context ctx) {
         var result = targetRepository.delete(id);
         return result ? StatusCode.NO_CONTENT : StatusCode.NOT_FOUND;
     }
 
     @POST("/releases/{id}/execute")
-    public void createRelease(@PathParam String id, Context ctx) {
+    public void createRelease(@PathParam("id") String id, Context ctx) {
         var value = repository.findById(id);
         value.ifPresent(release ->
                 scheduler.executeAsync(release.copy(b -> b.date(LocalDate.now()))));
@@ -76,62 +92,16 @@ public class ReleaseController {
         ctx.setResponseCode(value.isEmpty() ? StatusCode.NOT_FOUND : StatusCode.OK);
     }
 
-    /*
-    @POST("/releases")
-    public Release createRelease(Context ctx, Release release) {
-        var repository = ctx.require(ReleaseRepository.class);
+    @PATCH("/releases/{id}/executed")
+    public void changeExecutedFlag(@PathParam("id") String id, Context ctx) {
+        var result = repository.findById(id).map(releaseFromDb -> {
+            releaseFromDb.setExecuted(!releaseFromDb.isExecuted());
+            releaseFromDb.setUpdatedAt(LocalDateTime.now());
+            return repository.update(releaseFromDb);
+        }).orElse(Boolean.FALSE);
 
-        release.setCreatedAt(LocalDateTime.now());
-        release.setUpdatedAt(LocalDateTime.now());
-        var result = repository.create(release);
-
-        return Release.builder()
-                .id(result)
-                .build();
+        ctx.setResponseCode(result ? StatusCode.NO_CONTENT : StatusCode.NOT_FOUND);
     }
-
-    @PUT("/releases/{id}")
-    public void updateRelease(@PathParam("id") String id, Context ctx, Release release) {
-        if(!release.getId().equals(id)) {
-            log.error("Malicious operation: {} <> {}", id, release.getId());
-            throw new StatusCodeException(StatusCode.FORBIDDEN);
-        }
-
-        var repository = ctx.require(ReleaseRepository.class);
-
-        release.setId(id);
-        release.setUpdatedAt(LocalDateTime.now());
-        repository.update(release);
-
-        ctx.setResponseCode(StatusCode.OK);
-    }
-
-    @GET("/releases/{id}")
-    public Release getRelease(@PathParam String id, Context ctx) {
-        var repository = ctx.require(ReleaseRepository.class);
-
-        return repository.findById(id)
-                .orElseThrow(() -> new StatusCodeException(StatusCode.NOT_FOUND));
-    }
-
-    @POST("/books/{bookId}/targets")
-    public ReleaseTarget createTarget(@PathParam("bookId") String bookId, Context ctx, ReleaseTarget target) {
-        var repository = ctx.require(ReleaseTargetRepository.class);
-        target.setBookId(bookId);
-        target.setCreatedAt(LocalDateTime.now());
-        repository.create(target);
-
-        return target;
-    }
-
-    @DELETE("/targets/{id}")
-    public StatusCode deleteReleaseTarget(@PathParam String id, Context ctx) {
-        var repository = ctx.require(ReleaseTargetRepository.class);
-
-        var result = repository.delete(id);
-        return result ? StatusCode.NO_CONTENT : StatusCode.NOT_FOUND;
-    }
-    */
 
     public static ReleaseController_ releaseController(Jooby jooby) {
         return new ReleaseController_(jooby.require(ReleaseRepository.class),
@@ -140,5 +110,7 @@ public class ReleaseController {
                 jooby.require(ReleaseScheduleGenerator.class),
                 jooby.require(Scheduler.class));
     }
+
+    public record ScheduleRequest(ReleaseScheduleRequest settings, List<Release> releases) {}
 
 }

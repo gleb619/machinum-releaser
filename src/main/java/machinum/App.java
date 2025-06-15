@@ -33,6 +33,9 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static machinum.Config.changeLogLevel;
+import static machinum.assets.AssetsResourceController.assetsController;
+import static machinum.book.BookController.bookController;
+import static machinum.image.ImageController.imageController;
 import static machinum.release.ReleaseController.releaseController;
 import static machinum.util.Util.hasCause;
 
@@ -82,14 +85,15 @@ public class App extends Jooby {
             if (failure == null) {
                 log.info("< {} {}", ctx.getRequestPath(), ctx.getResponseCode().value());
             } else {
-                log.error("[X] {} {}", ctx.getRequestPath(), ctx.getResponseCode(), failure);
+                log.error("⤫ {} {}", ctx.getRequestPath(), ctx.getResponseCode(), failure);
             }
         });
 
         install(new Config());
-        mvc(new BookController_());
-        mvc(new ImageController_(require(ImageRepository.class), require(CoverService.class)));
+        mvc(bookController(this));
+        mvc(imageController(this));
         mvc(releaseController(this));
+        mvc(assetsController(this));
 
         get("/", ctx -> new MapModelAndView("index.html", Map.of()));
 

@@ -1,5 +1,7 @@
 package machinum.util;
 
+import org.apache.commons.lang3.exception.ExceptionUtils;
+
 import java.util.function.Function;
 
 @FunctionalInterface
@@ -10,7 +12,7 @@ public interface Try<T, R> {
             try {
                 return aTry.apply(i);
             } catch (Exception e) {
-                throw new RuntimeException(e);
+                return ExceptionUtils.rethrow(e);
             }
         };
     }

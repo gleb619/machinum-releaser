@@ -5,13 +5,12 @@ import jakarta.validation.Valid;
 import lombok.*;
 import machinum.util.Pair;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.function.Function;
+import java.util.zip.CRC32;
 
 import static machinum.release.Release.ReleaseConstants.PAGES_PARAM;
 import static machinum.util.Util.toPair;
@@ -78,12 +77,20 @@ public class Release {
         private String id;
         private String bookId;
         private String name;
+        private Boolean enabled;
         @Builder.Default
         @ToString.Exclude
         @EqualsAndHashCode.Exclude
         private Map<String, Object> metadata = new HashMap<>();
         @Builder.Default
         private LocalDateTime createdAt = LocalDateTime.now();
+
+        public String getDiscriminatorId() {
+            CRC32 fileCRC32 = new CRC32();
+            String key = "%s-%s-%s".formatted(getBookId(), getName(), getMetadata());
+            fileCRC32.update(key.getBytes(StandardCharsets.UTF_8));
+            return String.format(Locale.US,"%08X", fileCRC32.getValue());
+        }
 
     }
 
@@ -99,6 +106,7 @@ public class Release {
         private int chaptersCount;
         private int releasesCount;
         private int releasesDays;
+        private boolean disabled;
         @Builder.Default
         private LocalDate nextRelease = LocalDate.now();
 

@@ -1,6 +1,7 @@
 package machinum.util;
 
 import lombok.SneakyThrows;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 
 import java.util.function.Supplier;
 
@@ -12,7 +13,7 @@ public interface CheckedSupplier<T> {
             try {
                 return supplier.get();
             } catch (Exception e) {
-                throw new RuntimeException(e);
+                return ExceptionUtils.rethrow(e);
             }
         };
     }

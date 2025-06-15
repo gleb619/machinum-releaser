@@ -6,6 +6,7 @@ import com.sun.net.httpserver.HttpServer;
 import com.sun.net.httpserver.HttpExchange;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 
 import java.io.*;
 import java.net.InetSocketAddress;
@@ -40,13 +41,19 @@ public class MachinimaServer {
         var httpServer = future.get();
 
         // Add shutdown hook
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+        var hook = new Thread(() -> {
             log.info("Shutdown hook triggered");
             gracefulShutdown(httpServer, serverRunning);
-        }));
+        });
 
-        // Keep main thread alive and run periodic tasks
-        runMainLoop(serverRunning);
+        try {
+            Runtime.getRuntime().addShutdownHook(hook);
+
+            // Keep main thread alive and run periodic tasks
+            runMainLoop(serverRunning);
+        } finally {
+            Runtime.getRuntime().removeShutdownHook(hook);
+        }
     }
 
     private static void runMainLoop(AtomicBoolean serverRunning) {
@@ -254,7 +261,7 @@ public class MachinimaServer {
         }
 
         private void handlePreflightRequest(Context ctx, String origin) {
-            log.debug("Handling CORS preflight request from origin: {}", origin);
+            log.trace("Handling CORS preflight request from origin: {}", origin);
 
             // Check if origin is allowed
             if (!isOriginAllowed(origin)) {
@@ -287,7 +294,7 @@ public class MachinimaServer {
             // Send successful preflight response
             ctx.status(204).render("");
 
-            log.debug("CORS preflight approved for origin: {}", origin);
+            log.trace("CORS preflight approved for origin: {}", origin);
         }
 
         private void handleActualRequest(Context ctx, String origin) {
@@ -299,7 +306,7 @@ public class MachinimaServer {
             // Set CORS headers for actual request
             setCorsHeaders(ctx, origin, false);
 
-            log.debug("CORS headers set for actual request from origin: {}", origin);
+            log.trace("CORS headers set for actual request from origin: {}", origin);
         }
 
         private void setCorsHeaders(Context ctx, String origin, boolean isPreflight) {
@@ -762,7 +769,7 @@ public class MachinimaServer {
                 server.setExecutor(Executors.newVirtualThreadPerTaskExecutor());
                 return server;
             } catch (IOException e) {
-                throw new RuntimeException("Failed to create server", e);
+                return ExceptionUtils.rethrow(e);
             }
         }
 

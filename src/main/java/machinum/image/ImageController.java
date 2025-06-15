@@ -1,6 +1,7 @@
 package machinum.image;
 
 import io.jooby.Context;
+import io.jooby.Jooby;
 import io.jooby.StatusCode;
 import io.jooby.annotation.*;
 import lombok.Cleanup;
@@ -20,6 +21,11 @@ public class ImageController {
 
     private final ImageRepository repository;
     private final CoverService coverService;
+
+    public static ImageController_ imageController(Jooby jooby) {
+        return new ImageController_(jooby.require(ImageRepository.class),
+                jooby.require(CoverService.class));
+    }
 
     @SneakyThrows
     @GET("/images/{id}")

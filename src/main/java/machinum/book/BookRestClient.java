@@ -15,6 +15,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -47,26 +48,33 @@ public class BookRestClient {
         log.info(">> {}", targetUrl);
 
         try {
-            HttpResponse<String> response = httpClient.send(HttpRequest.newBuilder()
+            var response = httpClient.send(HttpRequest.newBuilder()
                     .uri(URI.create(targetUrl))
                     .header("Content-Type", "application/json")
                     .GET()
                     .build(), HttpResponse.BodyHandlers.ofString());
 
-            log.info("<< {} {}", targetUrl, response.statusCode());
 
             if (response.statusCode() == 204) {
+                log.info("<< {} {}", targetUrl, response.statusCode());
                 return Collections.emptyList();
             } else if (response.statusCode() != 200) {
-                throw new RuntimeException("Failed to fetch book titles: " + response.statusCode());
+                throw new AppException("Failed to fetch book titles: " + response.statusCode(), Map.of(
+                        "response", response,
+                        "status", response.statusCode()
+                ));
             }
 
-            String jsonList = response.body();
+            var jsonList = response.body();
+
+            log.info("<< {} {}", targetUrl, response.statusCode());
 
             return List.of(chapterJsonlConverter.getObjectMapper().readValue(jsonList, BookExportResult[].class));
         } catch (Exception e) {
             if (e instanceof ConnectException ce) {
                 log.error("<X Server is not reachable: {}", ce.getMessage());
+            } else if (e instanceof AppException ae) {
+                log.error("<< %s %s: ".formatted(targetUrl, ae.getMetadata().getOrDefault("status", 500)), e);
             } else {
                 log.error("<< %s %s: ".formatted(targetUrl, -1), e);
             }
@@ -81,7 +89,7 @@ public class BookRestClient {
 
     @SneakyThrows
     public List<Chapter> getReadyChapters(String id, Integer from, Integer to) {
-        StringBuilder urlBuilder = new StringBuilder(baseUrl).append("/api/books/").append(id).append("/chapters/ready");
+        var urlBuilder = new StringBuilder(baseUrl).append("/api/books/").append(id).append("/chapters/ready");
 
         if (from != null && to != null) {
             urlBuilder.append("?from=").append(from).append("&to=").append(to);

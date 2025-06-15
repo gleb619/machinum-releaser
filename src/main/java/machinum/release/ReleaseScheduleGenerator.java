@@ -140,8 +140,7 @@ public class ReleaseScheduleGenerator {
         }
 
         int chapters = 1;
-        for (int i = 0; i < result.size(); i++) {
-            Release release = result.get(i);
+        for (Release release : result) {
             release.addMetadata(PAGES_PARAM, chapters + "-" + (chapters + release.getChapters() - 1));
             chapters += release.getChapters();
         }

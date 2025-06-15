@@ -2,18 +2,35 @@ package machinum.book;
 
 import io.avaje.validation.Validator;
 import io.jooby.Context;
+import io.jooby.Jooby;
 import io.jooby.StatusCode;
 import io.jooby.annotation.*;
 import io.jooby.exception.StatusCodeException;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import machinum.book.BookRestClient.BookExportResult;
+import machinum.novel.NovelScraper;
+import machinum.novel.NovelScraper.ImageData;
 
 import java.util.List;
 import java.util.Optional;
 
+import static machinum.telegram.TelegramHandler.NameUtil.toSnakeCase;
+
 @Slf4j
 @Path("/api")
+@RequiredArgsConstructor
 public class BookController {
+
+    private final Validator validator;
+    private final BookRepository repository;
+    private final BookRestClient bookRestClient;
+
+    public static BookController_ bookController(Jooby jooby) {
+        return new BookController_(jooby.require(Validator.class),
+                jooby.require(BookRepository.class),
+                jooby.require(BookRestClient.class));
+    }
 
     @GET("/books")
     public List<Book> booksList(@QueryParam("query") String queryParam,
@@ -23,8 +40,6 @@ public class BookController {
         var query = Optional.ofNullable(queryParam).orElse("");
         var page = Optional.ofNullable(pageParam).orElse(0);
         var size = Optional.ofNullable(sizeParam).orElse(10);
-
-        var repository = ctx.require(BookRepository.class);
 
         var books = repository.list(query, page, size);
 
@@ -44,16 +59,12 @@ public class BookController {
     @GET("/books/{id}")
     public Book book(@PathParam("id") String id,
                      Context ctx) {
-        var repository = ctx.require(BookRepository.class);
-
         return repository.findById(id)
                 .orElseThrow(() -> new StatusCodeException(StatusCode.NOT_FOUND));
     }
 
     @POST("/books")
     public Book createBook(Book item, Context ctx) {
-        var repository = ctx.require(BookRepository.class);
-        var validator = ctx.require(Validator.class);
         validator.validate(item);
 
         var result = repository.create(item);
@@ -71,7 +82,6 @@ public class BookController {
             log.error("Malicious operation: {} <> {}", id, book.getId());
             throw new StatusCodeException(StatusCode.FORBIDDEN);
         }
-        var repository = ctx.require(BookRepository.class);
         repository.update(id, book);
 
         ctx.setResponseCode(StatusCode.OK);
@@ -79,7 +89,6 @@ public class BookController {
 
     @DELETE("/books/{id}")
     public void removeBook(@PathParam("id") String id, Context ctx) {
-        var repository = ctx.require(BookRepository.class);
         repository.delete(id);
 
         ctx.setResponseCode(StatusCode.OK);
@@ -87,14 +96,50 @@ public class BookController {
 
     @GET("/books/titles")
     public List<BookExportResult> getBookTitles(Context ctx) {
-        var bookClient = ctx.require(BookRestClient.class);
-
         // Set caching headers manually to 1 hour
         ctx.setResponseHeader("Cache-Control", "max-age=3600");
         ctx.setResponseHeader("Pragma", "cache");
         ctx.setResponseHeader("Expires", "3600");
 
-        return bookClient.getAllBookTitlesCached();
+        return bookRestClient.getAllBookTitlesCached();
+    }
+
+    @Deprecated
+    @GET("/books/remote-import")
+    public Context importFromRemoteUrl(@QueryParam("url") String url, Context ctx) {
+        //Doesn't work via headless client(cookies and js are needed)
+        NovelScraper.forUrl(url)
+                .scrape()
+                .ifPresentOrElse(novel -> {
+                    var imageData = NovelScraper.ImageDownloader.defaultOne()
+                            .fetch(novel.getCoverUrl());
+
+                    Book book = Book.builder()
+                            .uniqueId(toSnakeCase(novel.getTitle()))
+                            .ruName("Безымянный")
+                            .enName(novel.getTitle())
+                            .originName(novel.getAltTitle())
+                            .link(url)
+                            .linkText("Novel updates")
+                            .type(novel.getNovelType())
+                            .genre(novel.getGenres())
+                            .tags(novel.getTags())
+                            .year(Integer.parseInt(novel.getYear()))
+                            .chapters(novel.getChaptersCount())
+                            .author(novel.getAuthor())
+                            .description(novel.getDescription())
+                            .imageData(imageData.map(ImageData::toBase64).orElse(null))
+                            .build();
+
+                    // Set caching headers manually to 1 hour
+                    ctx.setResponseHeader("Cache-Control", "max-age=3600");
+                    ctx.setResponseHeader("Pragma", "cache");
+                    ctx.setResponseHeader("Expires", "3600");
+
+                    ctx.render(book);
+                }, () -> ctx.setResponseCode(404));
+
+        return ctx;
     }
 
 }
