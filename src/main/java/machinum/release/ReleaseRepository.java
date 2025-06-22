@@ -1,8 +1,7 @@
 package machinum.release;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
-import lombok.SneakyThrows;
+import lombok.*;
 import lombok.extern.slf4j.Slf4j;
 import machinum.exception.AppException;
 import machinum.release.Release.ReleaseTarget;
@@ -12,6 +11,7 @@ import org.jdbi.v3.core.mapper.reflect.BeanMapper;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 import static machinum.util.Util.typedParse;
@@ -47,7 +47,7 @@ public class ReleaseRepository {
                 SELECT r0.*
                 FROM releases r0 
                 LEFT JOIN release_targets rt0 ON rt0.id = r0.release_target_id 
-                WHERE r0.executed IS FALSE 
+                WHERE r0.status = 'DRAFT' 
                 AND rt0.enabled IS TRUE
                 ORDER BY r0.date, rt0.name""")
                 .mapToBean(Release.class)
@@ -59,8 +59,8 @@ public class ReleaseRepository {
         jdbi.withHandle(handle -> {
             for (Release release : releases) {
                 handle.createUpdate("""
-                                    INSERT INTO releases (date, release_target_id, chapters, executed, metadata, created_at, updated_at) 
-                                    VALUES (:date, :releaseTargetId, :chapters, :executed, CAST(:metadataString AS JSON), :createdAt, :updatedAt) 
+                                    INSERT INTO releases (date, release_target_id, chapters, status, metadata, created_at, updated_at) 
+                                    VALUES (:date, :releaseTargetId, :chapters, :status, CAST(:metadataString AS JSON), :createdAt, :updatedAt) 
                                     RETURNING id
                                 """)
                         .bindBean(release)
@@ -77,8 +77,8 @@ public class ReleaseRepository {
     @SneakyThrows
     public String create(Release release) {
         return jdbi.withHandle(handle -> handle.createUpdate("""
-                            INSERT INTO releases (date, release_target_id, chapters, executed, metadata, created_at, updated_at) 
-                            VALUES (:date, :releaseTargetId, :chapters, :executed, CAST(:metadataString AS JSON), :createdAt, :updatedAt) 
+                            INSERT INTO releases (date, release_target_id, chapters, status, metadata, created_at, updated_at) 
+                            VALUES (:date, :releaseTargetId, :chapters, :status, CAST(:metadataString AS JSON), :createdAt, :updatedAt) 
                             RETURNING id
                         """)
                 .bindBean(release)
@@ -94,7 +94,7 @@ public class ReleaseRepository {
                             UPDATE releases SET 
                                 date = :date, 
                                 chapters = :chapters, 
-                                executed = :executed,
+                                status = :status,
                                 metadata = CAST(:metadataString AS JSON), 
                                 updated_at = :updatedAtTime 
                             WHERE id = :id
@@ -125,10 +125,12 @@ public class ReleaseRepository {
     }
 
     @SneakyThrows
+    @Deprecated(forRemoval = true)
     public boolean markAsExecuted(String releaseId) {
         return jdbi.withHandle(handle -> handle.createUpdate("""
                             UPDATE releases SET 
                                 executed = true,
+                                status = 'EXECUTED',
                                 updated_at = :updatedAtTime 
                             WHERE id = :id
                         """)
@@ -137,7 +139,20 @@ public class ReleaseRepository {
                 .execute() > 0);
     }
 
-    public int findReleasePosition(String releaseId) {
+//    public boolean changeStatus(String status) {
+//        return jdbi.withHandle(handle -> handle.createUpdate("""
+//                            UPDATE releases SET
+//                                status = :status,
+//                                updated_at = :updatedAtTime
+//                            WHERE id = :id
+//                        """)
+//                .bind("id", status)
+//                .bind("status", status)
+//                .bind("updatedAtTime", LocalDateTime.now())
+//                .execute() > 0);
+//    }
+
+    public PositionInfo findReleasePosition(String releaseId) {
         return jdbi.withHandle(handle -> handle.createQuery("""
                                 WITH data AS ( 
                                     SELECT 
@@ -160,12 +175,13 @@ public class ReleaseRepository {
                                         WHEN row_num = (SELECT MIN(row_num) FROM data) THEN 0 
                                         WHEN row_num = (SELECT MAX(row_num) FROM data) THEN 2 
                                        ELSE 1 END, 
-                                   -1) as item_position
+                                   -1) as item_position,
+                                   row_num as index
                                FROM data r2
-                               where r2.id = :id
+                               WHERE r2.id = :id
                         """)
                 .bind("id", releaseId)
-                .mapTo(Integer.class)
+                .mapToBean(PositionInfo.class)
                 .one());
     }
 
@@ -255,11 +271,44 @@ public class ReleaseRepository {
                     .one());
         }
 
+        @SneakyThrows
+        public boolean update(ReleaseTarget target) {
+            return jdbi.withHandle(handle -> handle.createUpdate("""
+                            UPDATE
+                                release_targets
+                            SET
+                                book_id = :bookId,
+                                "name" = :name,
+                                metadata = CAST(:metadataString AS JSON),
+                                updated_at = :updatedAtTime,
+                                enabled = :enabled
+                            WHERE
+                                id = :id
+                        """)
+                    .bind("id", target.getId())
+                    .bind("metadataString", mapper.writeValueAsString(target.getMetadata()))
+                    .bind("updatedAtTime", LocalDateTime.now())
+                    .bindBean(target)
+                    .execute() > 0);
+        }
+
         public boolean delete(String id) {
             return jdbi.withHandle(handle -> handle.createUpdate("DELETE FROM release_targets WHERE id = :id")
                     .bind("id", id)
                     .execute() > 0);
         }
+
+    }
+
+    @Data
+    @AllArgsConstructor
+    @Builder(toBuilder = true)
+    @NoArgsConstructor(access = AccessLevel.PUBLIC)
+    public static class PositionInfo {
+
+        Integer itemPosition;
+
+        Integer index;
 
     }
 

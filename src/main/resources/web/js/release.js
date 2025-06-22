@@ -144,7 +144,7 @@ export function releaseApp() {
     getTargetIcon(targetName) {
         const iconMap = {
             'Telegram': '/image/telegram-icon.jpg',
-            'Website': '/image/website-icon.png',
+            'Website': '/image/website.svg',
             'App': '/image/app-icon.png',
             'Discord': '/image/discord-icon.png',
             'Email': '/image/email-icon.png'
@@ -348,6 +348,25 @@ export function releaseApp() {
             previewRelease.metadata['pages'] = `${chapters} - ${chapters + previewRelease.chapters - 1}`
             chapters += previewRelease.chapters;
         });
+    },
+
+    async toggleReleaseState(release) {
+        const response = await fetch(`/api/release-targets/${release.id}/enabled`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (response.status === 204) {
+            this.showToast('Release Target changed successfully!');
+            release.enabled = !release.enabled;
+        } else if (response.status === 404) {
+            this.showToast('Release Target is not found!', true)
+        } else {
+            console.error('An error occurred', response.statusText);
+            this.showToast('An error occurred ' + response.statusText, true)
+        }
     },
 
   };

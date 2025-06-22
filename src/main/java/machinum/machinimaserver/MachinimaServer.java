@@ -32,8 +32,12 @@ import java.util.stream.Collectors;
 
 // Main server class
 @Slf4j
+@RequiredArgsConstructor
 public class MachinimaServer {
-    
+
+    @Getter
+    private final HttpServer httpServer;
+
     @SneakyThrows
     public static void startAndWait(Consumer<ServerBuilder> configurator) {
         var serverRunning = new AtomicBoolean(true);
@@ -74,14 +78,14 @@ public class MachinimaServer {
         }
     }
 
-    private static void gracefulShutdown(HttpServer server, AtomicBoolean serverRunning) {
+    private static void gracefulShutdown(MachinimaServer server, AtomicBoolean serverRunning) {
         log.info("Initiating graceful shutdown...");
         serverRunning.set(false);
 
         try {
             // Stop accepting new requests
-            if (server != null) {
-                server.stop(5); // Wait up to 5 seconds for ongoing requests
+            if (server.getHttpServer() != null) {
+                server.stop(); // Wait up to 5 seconds for ongoing requests
                 log.info("HTTP server stopped");
             }
 
@@ -93,16 +97,27 @@ public class MachinimaServer {
         System.exit(0);
     }
 
-    public static CompletableFuture<HttpServer> start(Consumer<ServerBuilder> configurator) {
+    public static CompletableFuture<MachinimaServer> start(Consumer<ServerBuilder> configurator) {
         return CompletableFuture.supplyAsync(() -> {
-            ServerBuilder builder = new ServerBuilder();
+            var builder = new ServerBuilder();
             configurator.accept(builder);
             int port = builder.config.getPort();
-            HttpServer server = builder.build();
+            var server = new MachinimaServer(builder.build());
             server.start();
+
             log.info("Server started on port {}", port);
             return server;
         });
+    }
+
+    public MachinimaServer start() {
+        this.httpServer.start();
+        return this;
+    }
+
+    public MachinimaServer stop() {
+        this.httpServer.stop(5);
+        return this;
     }
 
     // Core context object
@@ -116,6 +131,7 @@ public class MachinimaServer {
         public static final String CONTENT_TYPE_TEXT = "text/plain";
         public static final String CONTENT_TYPE_JSON = "application/json";
 
+        private SessionStorage sessionStorage;
         private HttpExchange exchange;
         private Map<String, String> pathVariables;
         private Registry registry;
@@ -215,7 +231,6 @@ public class MachinimaServer {
         public Context status(int code) {
             try {
                 responseStatus.set(code);
-                //exchange.sendResponseHeaders(code, -1);
             } catch (Exception e) {
                 if(log.isDebugEnabled()) {
                     log.error("Send error: [%s]".formatted(url()), e);
@@ -229,6 +244,10 @@ public class MachinimaServer {
         public Context header(String name, String value) {
             exchange.getResponseHeaders().add(name, value);
             return this;
+        }
+
+        public SessionStorage session() {
+            return sessionStorage;
         }
 
     }
@@ -434,6 +453,7 @@ public class MachinimaServer {
 
     @Slf4j
     public static class ServerRegistry implements Registry {
+
         private final Map<Class<?>, Object> instances = new ConcurrentHashMap<>();
 
         public static ServerRegistry init(Consumer<ServerRegistry> configurator) {
@@ -549,23 +569,137 @@ public class MachinimaServer {
 
     }
 
+    public interface SessionStorage {
+
+        static SessionStorage defaultOne() {
+            return new MapSessionStorage();
+        }
+
+        static SessionStorage empty() {
+            return new NoopSessionStorage();
+        }
+
+        SessionStorage add(String key, Object value);
+
+        SessionStorage update(String key, Object value);
+
+        SessionStorage delete(String key);
+
+        <U> Optional<U> find(String key);
+
+        default <U> U get(String key) {
+            return (U) find(key)
+                    .orElseThrow(() -> new RuntimeException("Value for given key is not found in session"));
+        }
+
+        boolean exists(String key);
+
+        boolean contains(String key, String value);
+
+        default SessionStorage customize(Function<SessionStorage, SessionStorage> customizer) {
+            return customizer.apply(this);
+        }
+
+    }
+
+    public static class NoopSessionStorage implements SessionStorage {
+
+        @Override
+        public NoopSessionStorage add(String key, Object value) {
+            // No-op
+            return this;
+        }
+
+        @Override
+        public NoopSessionStorage update(String key, Object value) {
+            // No-op
+            return this;
+        }
+
+        @Override
+        public NoopSessionStorage delete(String key) {
+            // No-op
+            return this;
+        }
+
+        @Override
+        public <U> Optional<U> find(String key) {
+            return Optional.empty();
+        }
+
+        @Override
+        public boolean exists(String key) {
+            return false;
+        }
+
+        @Override
+        public boolean contains(String key, String value) {
+            return false;
+        }
+
+    }
+
+    public static class MapSessionStorage implements SessionStorage {
+
+        private final Map<String, Object> storage = new ConcurrentHashMap<>();
+
+        @Override
+        public MapSessionStorage add(String key, Object value) {
+            storage.putIfAbsent(key, value);
+            return this;
+        }
+
+        @Override
+        public MapSessionStorage update(String key, Object value) {
+            storage.put(key, value);
+            return this;
+        }
+
+        @Override
+        public MapSessionStorage delete(String key) {
+            storage.remove(key);
+            return this;
+        }
+
+        @Override
+        public <U> Optional<U> find(String key) {
+            return Optional.ofNullable((U) storage.get(key));
+        }
+
+        @Override
+        public boolean exists(String key) {
+            return storage.containsKey(key);
+        }
+
+        @Override
+        public boolean contains(String key, String value) {
+            return exists(key) && Objects.equals(storage.get(key), value);
+        }
+
+    }
+
     // Base dir utility
+    @Deprecated(forRemoval = true)
     public static class BaseDir {
 
         //TODO, redo or remove
+        @Deprecated(forRemoval = true)
         public static String find() {
             Path resourcesPath = Paths.get("src", "main", "resources");
             if (Files.exists(resourcesPath)) {
                 return resourcesPath.toAbsolutePath().toString();
             }
+
             return System.getProperty("user.dir");
         }
+
     }
 
     // Route definition
     @Data
     @AllArgsConstructor
     public static class Route {
+
         private String method;
         private String path;
         private Pattern pattern;
@@ -600,13 +734,16 @@ public class MachinimaServer {
                     params.put(paramNames.get(i), matcher.group(i + 1));
                 }
             }
+
             return params;
         }
+
     }
 
     // Chain handler
     @Slf4j
     public static class Chain {
+
         private final List<Route> routes = new ArrayList<>();
         private final List<FilterHandler> beforeFilters = new ArrayList<>();
         private final List<FilterHandler> afterFilters = new ArrayList<>();
@@ -689,11 +826,12 @@ public class MachinimaServer {
             return this;
         }
 
-        public void handle(HttpExchange exchange) {
+        public void handle(HttpExchange exchange, SessionStorage sessionStorage) {
             String method = exchange.getRequestMethod();
             String path = exchange.getRequestURI().getPath();
 
             Context ctx = Context.builder()
+                    .sessionStorage(sessionStorage)
                     .exchange(exchange)
                     .registry(registry)
                     .build();
@@ -736,6 +874,7 @@ public class MachinimaServer {
                 }
             }
         }
+
     }
 
     // Server builder
@@ -745,9 +884,16 @@ public class MachinimaServer {
         private ServerConfig config = ServerConfig.builder().build();
         private Registry registry;
         private Chain chain;
+        private SessionStorage sessionStorage = SessionStorage.empty();
+        private Runnable startAction = () -> {};
 
         public ServerBuilder serverConfig(Function<ServerConfig.ServerConfigBuilder, ServerConfig.ServerConfigBuilder> configurator) {
             this.config = configurator.apply(ServerConfig.builder()).build();
+            return this;
+        }
+
+        public ServerBuilder sessionStorage(SessionStorage sessionStorage) {
+            this.sessionStorage = sessionStorage;
             return this;
         }
 
@@ -756,17 +902,29 @@ public class MachinimaServer {
             return this;
         }
 
+        public ServerBuilder registry(Consumer<ServerRegistry> configurator) {
+            return registry(ServerRegistry.init(configurator));
+        }
+
         public ServerBuilder handlers(Consumer<Chain> chainConfig) {
             this.chain = new Chain(registry, config.getCorsConfig());
             chainConfig.accept(chain);
             return this;
         }
 
+        public ServerBuilder onStarted(Runnable runnable) {
+            this.startAction = runnable;
+            return this;
+        }
+
         public HttpServer build() {
             try {
-                HttpServer server = HttpServer.create(new InetSocketAddress(config.getPort()), 0);
-                server.createContext("/", chain::handle);
+                //TODO add creator/builder for session
+                var storage = sessionStorage;
+                var server = HttpServer.create(new InetSocketAddress(config.getPort()), 0);
+                server.createContext("/", exchange -> chain.handle(exchange, storage));
                 server.setExecutor(Executors.newVirtualThreadPerTaskExecutor());
+                startAction.run();
                 return server;
             } catch (IOException e) {
                 return ExceptionUtils.rethrow(e);

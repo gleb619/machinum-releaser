@@ -3,6 +3,7 @@ package machinum.release;
 import com.fasterxml.jackson.annotation.JsonUnwrapped;
 import jakarta.validation.Valid;
 import lombok.*;
+import machinum.util.MetadataSupport;
 import machinum.util.Pair;
 
 import java.nio.charset.StandardCharsets;
@@ -20,14 +21,16 @@ import static machinum.util.Util.toPair;
 @AllArgsConstructor
 @Builder(toBuilder = true)
 @NoArgsConstructor(access = AccessLevel.PUBLIC)
-public class Release {
+public class Release implements MetadataSupport<Release> {
 
     private String id;
     private String releaseTargetName;
     private String releaseTargetId;
     private LocalDate date;
     private int chapters;
+    @Deprecated(forRemoval = true)
     private boolean executed;
+    private String status;
     @Builder.Default
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
@@ -37,53 +40,54 @@ public class Release {
     @Builder.Default
     private LocalDateTime updatedAt = LocalDateTime.now();
 
-    public <T> T metadata(String key) {
-        return (T) metadata.get(key);
-    }
-
-    public boolean hasMetadata(String key) {
-        return metadata.containsKey(key);
-    }
-
-    public boolean hasMetadata(String key, String value) {
-        return hasMetadata(key) && Objects.equals(metadata(key), value);
-    }
-
-    public Release addMetadata(String key, Object value) {
-        metadata.put(key, value);
-        return this;
-    }
-
     public Pair<Integer, Integer> toPageRequest() {
         String pages = metadata(PAGES_PARAM);
 
         return Arrays.stream(pages.split("-"))
+                .map(String::trim)
                 .map(Integer::parseInt)
                 .collect(toPair());
+    }
+
+    public ReleaseStatus status() {
+        return ReleaseStatus.valueOf(getStatus());
+    }
+
+    public void status(ReleaseStatus status) {
+        setStatus(status.name());
     }
 
     public Release copy(Function<ReleaseBuilder, ReleaseBuilder> action) {
         return action.apply(toBuilder()).build();
     }
 
+    public enum ReleaseStatus {
+
+        DRAFT,
+        MANUAL_ACTION_REQUIRED,
+        EXECUTED
+
+    }
 
     @Valid
     @Data
     @AllArgsConstructor
     @Builder(toBuilder = true)
     @NoArgsConstructor(access = AccessLevel.PUBLIC)
-    public static class ReleaseTarget {
+    public static class ReleaseTarget implements MetadataSupport<ReleaseTarget> {
 
         private String id;
         private String bookId;
         private String name;
-        private Boolean enabled;
+        private boolean enabled;
         @Builder.Default
         @ToString.Exclude
         @EqualsAndHashCode.Exclude
         private Map<String, Object> metadata = new HashMap<>();
         @Builder.Default
         private LocalDateTime createdAt = LocalDateTime.now();
+        @Builder.Default
+        private LocalDateTime updatedAt = LocalDateTime.now();
 
         public String getDiscriminatorId() {
             CRC32 fileCRC32 = new CRC32();
@@ -116,6 +120,8 @@ public class Release {
     public static class ReleaseConstants {
 
         public static final String PAGES_PARAM = "pages";
+        public static final String SITE_URL_PARAM = "siteUrl";
+        public static final String SITE_PORT_PARAM = "sitePort";
 
     }
 

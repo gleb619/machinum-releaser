@@ -12,6 +12,7 @@ import java.time.LocalDate;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import static machinum.release.Release.ReleaseStatus.EXECUTED;
 import static machinum.util.Util.firstNonNull;
 import static machinum.util.Util.runAsync;
 
@@ -71,9 +72,16 @@ public class Scheduler implements AutoCloseable {
 
             try {
                 log.info("Execution task: id={}", releaseId);
-                actionHandler.handle(release);
-                release.setExecuted(true);
-                repository.markAsExecuted(releaseId);
+                var result = actionHandler.handle(release);
+                if(result.isExecuted()) {
+                    release.setExecuted(true);
+                    release.status(EXECUTED);
+                    repository.markAsExecuted(releaseId);
+                } else {
+                    release.status(result.getStatus());
+                    release.getMetadata().put("result", result.getMetadata());
+                    repository.update(release);
+                }
                 log.info("Executed task: id={}", releaseId);
             } catch (Exception e) {
                 log.error("ERROR: ", e);

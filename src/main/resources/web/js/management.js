@@ -245,5 +245,15 @@ export function managementApp() {
       return Math.abs(Math.ceil((input - today) / (1000 * 60 * 60 * 24)));
     },
 
+    getStatusClass(release) {
+        const classes = {
+            'DRAFT': 'bg-yellow-100 text-yellow-800',
+            'MANUAL_ACTION_REQUIRED': 'bg-red-100 text-red-800',
+            'EXECUTED': 'bg-green-100 text-green-800'
+        };
+
+        return classes[release.status] || 'bg-gray-100 text-gray-800';
+    }
+
   };
 }

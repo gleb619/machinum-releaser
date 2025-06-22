@@ -9,7 +9,7 @@ public class UnitTest {
 
     @Test
     public void welcome() {
-        var controller = new BookController();
+        var controller = new BookController(null, null, null);
         assertEquals("Welcome to Jooby!", controller.booksList("", 0, 10, null));
     }
 

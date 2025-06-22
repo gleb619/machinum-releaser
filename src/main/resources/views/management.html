@@ -117,7 +117,7 @@
                     <tbody>
                     <template :key="release.id" x-for="(release, index) in filteredReleases">
                         <tr :class="index % 2 === 0 ? 'bg-gray-50' : 'bg-white'"
-                            x-bind:title="'ID: ' +release.id">
+                            x-bind:title="'ID: ' + release.id">
                             <td class="py-2 px-4 border-b">
                                 <div class="font-semibold flex items-center">
                                     <img :src="getTargetIcon(release.releaseTargetName)" class="w-4 h-4 mr-2">
@@ -128,14 +128,12 @@
                             <span :class="getDateClass(release.date, release.executed)"
                                   x-show="!release.editing"
                                   x-bind:title="`${daysDiff(release.date)} days diff`"
-                                  x-text="release.date"
-                            ></span>
+                                  x-text="release.date"></span>
                                 <input
                                         class="border border-gray-300 rounded px-2 py-1 w-32"
                                         type="date"
                                         x-model="release.editData.date"
-                                        x-show="release.editing"
-                                >
+                                        x-show="release.editing">
                             </td>
                             <td class="py-2 px-4 border-b text-gray-400">
                                 <span x-show="!release.editing">
@@ -146,15 +144,13 @@
                                         min="1"
                                         type="number"
                                         x-model.number="release.editData.chapters"
-                                        x-show="release.editing"
-                                >
+                                        x-show="release.editing">
                             </td>
                             <td class="py-2 px-4 border-b">
                                 <span
-                                        :class="release.executed ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'"
+                                        :class="getStatusClass(release)"
                                         class="px-2 py-1 rounded-full text-xs font-medium"
-                                        x-text="release.executed ? 'Executed' : 'Pending'"
-                                ></span>
+                                        x-text="release.status"></span>
                             </td>
                             <td class="py-2 px-4 border-b">
                                 <!-- Edit mode actions -->
@@ -173,6 +169,13 @@
 
                                 <!-- Normal mode actions -->
                                 <div class="flex space-x-2" x-show="!release.editing">
+                                    <a x-show="release?.metadata?.result && !release.executed"
+                                            target="_blank"
+                                            href="#"
+                                            x-bind:href="release?.metadata?.result?.link || '#'"
+                                            class="bg-indigo-500 hover:bg-indigo-600 text-white px-2 py-1 rounded text-xs">
+                                        Start
+                                    </a>
                                     <button x-show="!release.executed"
                                             @click="executeRelease(release)"
                                             class="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs">

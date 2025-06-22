@@ -17,6 +17,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
 
+import static machinum.release.Release.ReleaseStatus.EXECUTED;
+
 @Slf4j
 @Path("/api")
 @RequiredArgsConstructor
@@ -92,12 +94,32 @@ public class ReleaseController {
         ctx.setResponseCode(value.isEmpty() ? StatusCode.NOT_FOUND : StatusCode.OK);
     }
 
-    @PATCH("/releases/{id}/executed")
-    public void changeExecutedFlag(@PathParam("id") String id, Context ctx) {
+    @PATCH("/releases/{id}/{field}")
+    public void changeReleaseExecutedFlag(@PathParam("id") String id,
+                                   @PathParam("field") String field,
+                                   Context ctx) {
         var result = repository.findById(id).map(releaseFromDb -> {
-            releaseFromDb.setExecuted(!releaseFromDb.isExecuted());
+            if(field.equals("executed")) {
+                releaseFromDb.setExecuted(!releaseFromDb.isExecuted());
+                releaseFromDb.status(EXECUTED);
+            }
             releaseFromDb.setUpdatedAt(LocalDateTime.now());
             return repository.update(releaseFromDb);
+        }).orElse(Boolean.FALSE);
+
+        ctx.setResponseCode(result ? StatusCode.NO_CONTENT : StatusCode.NOT_FOUND);
+    }
+
+    @PATCH("/release-targets/{id}/{field}")
+    public void changeTargetExecutedFlag(@PathParam("id") String id,
+                                   @PathParam("field") String field,
+                                   Context ctx) {
+        var result = targetRepository.findById(id).map(targetFromDb -> {
+            if(field.equals("enabled")) {
+                targetFromDb.setEnabled(!targetFromDb.isEnabled());
+            }
+            targetFromDb.setUpdatedAt(LocalDateTime.now());
+            return targetRepository.update(targetFromDb);
         }).orElse(Boolean.FALSE);
 
         ctx.setResponseCode(result ? StatusCode.NO_CONTENT : StatusCode.NOT_FOUND);

@@ -29,6 +29,7 @@ import machinum.telegram.TelegramHandler;
 import machinum.telegram.TelegramProperties;
 import machinum.telegram.TelegramService;
 import machinum.util.Pair;
+import machinum.website.WebsiteHandler;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.generic.GenericType;
 import org.jdbi.v3.core.mapper.ColumnMapper;
@@ -185,7 +186,11 @@ public class Config implements Extension {
         registry.putIfAbsent(TelegramClient.class, tgClient);
         registry.putIfAbsent(TelegramService.class, tgService);
 
-        var handler = new ActionsHandler(tgHandler, releaseRepository, targetRepository, bookRepository);
+        var workDir = config.getString("app.workDir");
+        var websiteHandler = new WebsiteHandler(restClient, workDir);
+        registry.putIfAbsent(WebsiteHandler.class, websiteHandler);
+
+        var handler = new ActionsHandler(websiteHandler, tgHandler, releaseRepository, targetRepository, bookRepository, restClient);
         registry.putIfAbsent(ActionsHandler.class, handler);
         registry.putIfAbsent(Scheduler.class, new Scheduler(Executors.newScheduledThreadPool(1), releaseRepository, handler));
         registry.putIfAbsent(ServiceKey.key(HttpClient.class, "assets"), HttpClient.newBuilder()
@@ -202,6 +207,7 @@ public class Config implements Extension {
             application.require(Scheduler.class).close();
             application.require(CacheService.class).close();
             application.require(TelegramClient.class).close();
+            application.require(WebsiteHandler.class).close();
         });
     }
 

@@ -3,9 +3,12 @@ package machinum.util;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 import lombok.NonNull;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import machinum.exception.AppException;
 
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
@@ -181,6 +184,22 @@ public class Util {
         }
 
         return false;
+    }
+
+    @SneakyThrows
+    public static String addQueryParam(String url, String paramName, String paramValue) {
+        URI uri = new URI(url);
+        String query = uri.getQuery();
+        String newQuery;
+
+        if (query == null || query.isEmpty()) {
+            newQuery = paramName + "=" + paramValue;
+        } else {
+            newQuery = query + "&" + paramName + "=" + paramValue;
+        }
+
+        return new URI(uri.getScheme(), uri.getUserInfo(), uri.getHost(), uri.getPort(),
+                uri.getPath(), newQuery, uri.getFragment()).toString();
     }
 
 }

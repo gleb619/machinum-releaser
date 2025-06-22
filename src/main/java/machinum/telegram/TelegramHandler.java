@@ -53,15 +53,18 @@ public class TelegramHandler implements ActionHandler {
      * Handles the action context based on whether it's the first or subsequent release.
      *
      * @param context The ActionContext to handle.
+     * @return
      */
     @Override
-    public void handle(ActionContext context) {
+    public HandlerResult handle(ActionContext context) {
         if (context.isFirstRelease()) {
             releaseBook(context);
             releaseChapters(context);
         } else {
             releaseChapters(context);
         }
+
+        return HandlerResult.executed();
     }
 
     /* ============= */
@@ -110,7 +113,7 @@ public class TelegramHandler implements ActionHandler {
 
         var chapters = (String) release.metadata(PAGES_PARAM);
         var chaptersRequest = release.toPageRequest();
-        var remoteBookId = getRemoteBookId(book);
+        var remoteBookId = context.getRemoteBookId();
 
         log.debug("Fetching ready chapters for: bookID={}, mode={}", remoteBookId, chatType);
 
@@ -178,15 +181,6 @@ public class TelegramHandler implements ActionHandler {
             log.error("Epub generation failed for book: {}, mode={}", book.getRuName(), chatType);
             throw new AppException("Epub generation is failed");
         }
-    }
-
-    private String getRemoteBookId(Book book) {
-        var list = bookRestClient.getAllBookTitlesCached();
-        return list.stream()
-                .filter(dto -> Objects.equals(dto.title(), book.getUniqueId()))
-                .findFirst()
-                .orElseThrow(() -> new AppException("Can't find remote book for given title: %s", book.getUniqueId()))
-                .id();
     }
 
     /* ============= */
