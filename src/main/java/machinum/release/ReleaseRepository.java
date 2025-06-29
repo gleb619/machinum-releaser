@@ -47,7 +47,7 @@ public class ReleaseRepository {
                 SELECT r0.*
                 FROM releases r0 
                 LEFT JOIN release_targets rt0 ON rt0.id = r0.release_target_id 
-                WHERE r0.status = 'DRAFT' 
+                WHERE r0.status IN ('DRAFT', 'MANUAL_ACTION_REQUIRED') 
                 AND rt0.enabled IS TRUE
                 ORDER BY r0.date, rt0.name""")
                 .mapToBean(Release.class)
@@ -125,7 +125,6 @@ public class ReleaseRepository {
     }
 
     @SneakyThrows
-    @Deprecated(forRemoval = true)
     public boolean markAsExecuted(String releaseId) {
         return jdbi.withHandle(handle -> handle.createUpdate("""
                             UPDATE releases SET 

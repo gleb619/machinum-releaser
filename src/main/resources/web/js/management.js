@@ -158,6 +158,7 @@ export function managementApp() {
         if(!release) return;
 
         release.executed = !release.executed;
+        release.status = 'EXECUTED';
 
         try {
           const response = await fetch(`/api/releases/${release.id}/executed`, {

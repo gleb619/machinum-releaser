@@ -3,6 +3,7 @@ package machinum.release;
 import io.avaje.validation.Validator;
 import io.jooby.Context;
 import io.jooby.Jooby;
+import io.jooby.MediaType;
 import io.jooby.StatusCode;
 import io.jooby.annotation.*;
 import lombok.RequiredArgsConstructor;

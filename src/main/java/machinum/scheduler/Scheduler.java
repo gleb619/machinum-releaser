@@ -77,6 +77,8 @@ public class Scheduler implements AutoCloseable {
                     release.setExecuted(true);
                     release.status(EXECUTED);
                     repository.markAsExecuted(releaseId);
+                } else if(result.hasNoChanges()){
+                    log.debug("Release still awaits of manual action from user: {}", release);
                 } else {
                     release.status(result.getStatus());
                     release.getMetadata().put("result", result.getMetadata());

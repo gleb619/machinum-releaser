@@ -187,7 +187,7 @@ public class Config implements Extension {
         registry.putIfAbsent(TelegramService.class, tgService);
 
         var workDir = config.getString("app.workDir");
-        var websiteHandler = new WebsiteHandler(restClient, workDir);
+        var websiteHandler = new WebsiteHandler(releaseRepository, restClient, workDir);
         registry.putIfAbsent(WebsiteHandler.class, websiteHandler);
 
         var handler = new ActionsHandler(websiteHandler, tgHandler, releaseRepository, targetRepository, bookRepository, restClient);

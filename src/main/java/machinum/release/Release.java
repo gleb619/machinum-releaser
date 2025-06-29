@@ -65,7 +65,8 @@ public class Release implements MetadataSupport<Release> {
 
         DRAFT,
         MANUAL_ACTION_REQUIRED,
-        EXECUTED
+        EXECUTED,
+        NO_CHANGES
 
     }
 
@@ -89,6 +90,7 @@ public class Release implements MetadataSupport<Release> {
         @Builder.Default
         private LocalDateTime updatedAt = LocalDateTime.now();
 
+        @Deprecated(forRemoval = true)
         public String getDiscriminatorId() {
             CRC32 fileCRC32 = new CRC32();
             String key = "%s-%s-%s".formatted(getBookId(), getName(), getMetadata());

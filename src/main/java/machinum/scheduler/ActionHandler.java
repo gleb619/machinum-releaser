@@ -57,12 +57,14 @@ public interface ActionHandler {
                     .remoteBookId(remoteBookId)
                     .build();
 
+            //TODO return new copy of release in HandlerResult
             var output = switch (targetName) {
                 case "Telegram" -> tgHandler.handle(context);
                 case "Website" -> websiteHandler.handle(context);
                 default -> throw new IllegalArgumentException("Unknown type: " + targetName);
             };
 
+            //TODO should we remove it, due Scheduler already have update call?
             repository.update(release);
 
             return output;
@@ -92,8 +94,16 @@ public interface ActionHandler {
             return Objects.equals(getStatus(), ReleaseStatus.EXECUTED);
         }
 
+        public boolean hasNoChanges() {
+            return Objects.equals(getStatus(), ReleaseStatus.NO_CHANGES);
+        }
+
         public static HandlerResult executed() {
             return new HandlerResult(ReleaseStatus.EXECUTED, Map.of());
+        }
+
+        public static HandlerResult noChanges() {
+            return new HandlerResult(ReleaseStatus.NO_CHANGES, Map.of());
         }
 
         public String statusString() {

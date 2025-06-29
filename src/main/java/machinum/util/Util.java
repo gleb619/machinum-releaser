@@ -7,8 +7,10 @@ import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import machinum.exception.AppException;
 
+import javax.xml.bind.DatatypeConverter;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.security.MessageDigest;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
@@ -200,6 +202,14 @@ public class Util {
 
         return new URI(uri.getScheme(), uri.getUserInfo(), uri.getHost(), uri.getPort(),
                 uri.getPath(), newQuery, uri.getFragment()).toString();
+    }
+
+    @SneakyThrows
+    public static String md5(String text) {
+        MessageDigest md = MessageDigest.getInstance("MD5");
+        md.update(text.getBytes());
+        byte[] digest = md.digest();
+        return DatatypeConverter.printHexBinary(digest).toUpperCase();
     }
 
 }
