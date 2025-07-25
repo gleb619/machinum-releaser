@@ -25,7 +25,7 @@ public class ReleaseRepository {
 
     public Optional<Release> findById(String id) {
         return jdbi.withHandle(handle -> handle.createQuery("""
-                        SELECT r0.*, rt0.name as release_target_name 
+                        SELECT r0.*, rt0.action_type as release_action_type 
                         FROM releases r0
                         LEFT JOIN release_targets rt0 on rt0.id = r0.release_target_id
                         WHERE r0.id = :id
@@ -49,7 +49,7 @@ public class ReleaseRepository {
                 LEFT JOIN release_targets rt0 ON rt0.id = r0.release_target_id 
                 WHERE r0.status IN ('DRAFT', 'MANUAL_ACTION_REQUIRED') 
                 AND rt0.enabled IS TRUE
-                ORDER BY r0.date, rt0.name""")
+                ORDER BY r0.date, rt0.action_type""")
                 .mapToBean(Release.class)
                 .list());
     }
@@ -114,7 +114,7 @@ public class ReleaseRepository {
 
     public List<Release> findByBookId(String bookId) {
         return jdbi.withHandle(handle -> handle.createQuery("""
-                        SELECT rt0.name as release_target_name, r0.* 
+                        SELECT rt0.action_type as release_action_type, r0.* 
                         FROM release_targets rt0 
                         LEFT JOIN releases r0 ON r0.release_target_id = rt0.id 
                         WHERE rt0.book_id = :bookId
@@ -128,7 +128,6 @@ public class ReleaseRepository {
     public boolean markAsExecuted(String releaseId) {
         return jdbi.withHandle(handle -> handle.createUpdate("""
                             UPDATE releases SET 
-                                executed = true,
                                 status = 'EXECUTED',
                                 updated_at = :updatedAtTime 
                             WHERE id = :id
@@ -137,19 +136,6 @@ public class ReleaseRepository {
                 .bind("updatedAtTime", LocalDateTime.now())
                 .execute() > 0);
     }
-
-//    public boolean changeStatus(String status) {
-//        return jdbi.withHandle(handle -> handle.createUpdate("""
-//                            UPDATE releases SET
-//                                status = :status,
-//                                updated_at = :updatedAtTime
-//                            WHERE id = :id
-//                        """)
-//                .bind("id", status)
-//                .bind("status", status)
-//                .bind("updatedAtTime", LocalDateTime.now())
-//                .execute() > 0);
-//    }
 
     public PositionInfo findReleasePosition(String releaseId) {
         return jdbi.withHandle(handle -> handle.createQuery("""
@@ -187,7 +173,7 @@ public class ReleaseRepository {
     public <T> T findSingleMetadata(String releaseTargetId, String key) {
         var list = findMetadata(releaseTargetId, key);
         if (!list.isEmpty()) {
-            var first = list.get(0);
+            var first = list.getFirst();
             if (first instanceof String s) {
                 return (T) typedParse(s);
             } else {
@@ -259,8 +245,8 @@ public class ReleaseRepository {
         @SneakyThrows
         public String create(ReleaseTarget releaseTarget) {
             return jdbi.withHandle(handle -> handle.createUpdate("""
-                                INSERT INTO release_targets (book_id, name, enabled, metadata, created_at)
-                                VALUES (:bookId, :name, :enabled, CAST(:metadataString AS JSON), :createdAt)
+                                INSERT INTO release_targets (book_id, name, action_type, enabled, metadata, created_at)
+                                VALUES (:bookId, :name, :actionType, :enabled, CAST(:metadataString AS JSON), :createdAt)
                                 RETURNING id
                             """)
                     .bindBean(releaseTarget)
@@ -278,6 +264,7 @@ public class ReleaseRepository {
                             SET
                                 book_id = :bookId,
                                 "name" = :name,
+                                action_type = :actionType,
                                 metadata = CAST(:metadataString AS JSON),
                                 updated_at = :updatedAtTime,
                                 enabled = :enabled

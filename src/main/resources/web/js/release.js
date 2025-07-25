@@ -7,16 +7,18 @@ export function releaseApp() {
     currentRelease: {
         date: new Date().toISOString().split('T')[0],
         chapters: 1,
-        executed: false,
+        status: 'DRAFT',
         metadata: {}
     },
     currentTarget: {
         name: '',
+        actionType: 'OTHER',
         metadata: {}
     },
     targetReleaseId: null,
     currentSchedule: {
         name: '',
+        actionType: 'OTHER',
         startDate: new Date().toISOString().split('T')[0],
         dayThreshold: 4,
         amountOfChapters: 0,
@@ -31,14 +33,16 @@ export function releaseApp() {
         metadata: {}
     },
     previewReleases: [],
+    actionTypes: [],
 
     initRelease() {
         this.loadValue('currentSchedule', this.currentSchedule);
+        this.fetchActionTypes();
     },
 
     get resolveCurrentSchedule() {
-        const {name, startDate, dayThreshold, startBulk, endBulk, minChapters, maxChapters, peakWidth, smoothFactor, randomFactor, periodCount, ...other} = this.currentSchedule;
-        return { name, startDate, dayThreshold, amountOfChapters: 0, startBulk, endBulk, minChapters, maxChapters, peakWidth, smoothFactor, randomFactor, periodCount, metadata: {} };
+        const {name, actionType, startDate, dayThreshold, startBulk, endBulk, minChapters, maxChapters, peakWidth, smoothFactor, randomFactor, periodCount, ...other} = this.currentSchedule;
+        return { name, actionType, startDate, dayThreshold, amountOfChapters: 0, startBulk, endBulk, minChapters, maxChapters, peakWidth, smoothFactor, randomFactor, periodCount, metadata: {} };
     },
 
     releaseBook(book) {
@@ -80,23 +84,63 @@ export function releaseApp() {
         this.isReleaseFormOpen = true;
     },
 
+    async copyRelease(releaseSource) {
+        const releaseTarget = {...releaseSource};
+
+        Object.entries(releaseTarget).forEach(([key, value]) => {
+            if (this.currentSchedule.hasOwnProperty(key)) {
+                this.currentSchedule[key] = value;
+            }
+        });
+
+        const releases = await this.fetchTargetReleases(releaseTarget.id);
+        releases.forEach(release => {
+            release.id = null;
+            release.releaseTargetId = null;
+        });
+
+        this.previewReleases = releases;
+        this.openReleaseCreateForm();
+
+        if(!previewChart) {
+            this.createPreviewChart();
+        }
+        this.previewUpdateChart();
+    },
+
+    async fetchTargetReleases(releaseTargetId) {
+        try {
+            const response = await fetch(`/api/release-targets/${releaseTargetId}/releases`);
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+
+            const data = await response.json();
+            data.sort((a, b) => new Date(a.date) - new Date(b.date));
+            return data;
+        } catch (error) {
+            console.error('Error fetching the data:', error);
+            this.showToast('Error loading action types: ' + error.message, true);
+        }
+    },
+
     deleteRelease(releaseId) {
         if (confirm('Are you sure you want to delete this release?')) {
             fetch(`/api/releases/${releaseId}`, {
                 method: 'DELETE'
             })
-                .then(response => {
-                    if (response.ok) {
-                        this.showToast('Release deleted successfully');
-                        this.fetchReleases(this.selectedBook.id);
-                        this.afterReleasesChanged();
-                    } else {
-                        throw new Error('Failed to delete release');
-                    }
-                })
-                .catch(error => {
-                    this.showToast('Error: ' + error.message, true);
-                });
+            .then(response => {
+                if (response.ok) {
+                    this.showToast('Release deleted successfully');
+                    this.fetchReleases(this.selectedBook.id);
+                    this.afterReleasesChanged();
+                } else {
+                    throw new Error('Failed to delete release');
+                }
+            })
+            .catch(error => {
+                this.showToast('Error: ' + error.message, true);
+            });
         }
     },
 
@@ -143,14 +187,15 @@ export function releaseApp() {
 
     getTargetIcon(targetName) {
         const iconMap = {
-            'Telegram': '/image/telegram-icon.jpg',
-            'Website': '/image/website.svg',
+            'TELEGRAM': '/image/telegram-icon.jpg',
+            'TELEGRAM_AUDIO': '/image/telegram-icon.jpg',
+            'WEBSITE': '/image/website.svg',
             'App': '/image/app-icon.png',
             'Discord': '/image/discord-icon.png',
             'Email': '/image/email-icon.png'
         };
 
-        return iconMap[targetName] || '/image/default-icon.png';
+        return iconMap[targetName] || '/image/default-icon.svg';
     },
 
     generateSchedule(preview = false) {
@@ -196,8 +241,8 @@ export function releaseApp() {
             });
     },
 
-    createPreviewChart() {
-        const el = document.getElementById('previewReleaseChart');
+    async createPreviewChart() {
+        const el = await this.waitForElement('#previewReleaseChart');
         if(!el) {
             console.error("Element 'previewReleaseChart' not found");
             return;
@@ -254,16 +299,20 @@ export function releaseApp() {
 
     previewUpdateChart() {
         this.$nextTick(() => {
-            const sortedReleases = [...this.previewReleases]
-                .filter(r => r.date)
-                .sort((a, b) => new Date(a.date) - new Date(b.date));
+            setTimeout(() => {
+                if(!previewChart) return;
 
-            previewChart.data.labels = sortedReleases.map(r =>
-                new Date(r.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-            );
-            previewChart.data.datasets[0].data = sortedReleases.map(r => r.chapters || 0);
+                const sortedReleases = [...this.previewReleases]
+                    .filter(r => r.date)
+                    .sort((a, b) => new Date(a.date) - new Date(b.date));
 
-            previewChart.update();
+                previewChart.data.labels = sortedReleases.map(r =>
+                    new Date(r.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                );
+                previewChart.data.datasets[0].data = sortedReleases.map(r => r.chapters || 0);
+
+                previewChart.update();
+            }, 100);
         });
     },
 
@@ -278,11 +327,11 @@ export function releaseApp() {
 
         const newRelease = {
             id: Date.now().toString(),
-            releaseTargetName: '',
+            releaseActionType: '',
             releaseTargetId: releaseTargetId,
             date: releaseDate.toISOString().split('T')[0],
             chapters: 1,
-            executed: false,
+            status: 'DRAFT',
             metadata: {},
             showMetadata: false,
             newMetadataKey: '',
@@ -312,7 +361,7 @@ export function releaseApp() {
         const duplicate = {
             ...original,
             id: Date.now().toString(),
-            executed: false,
+            status: 'DRAFT',
             showMetadata: false,
             newMetadataKey: '',
             newMetadataValue: ''
@@ -366,6 +415,44 @@ export function releaseApp() {
         } else {
             console.error('An error occurred', response.statusText);
             this.showToast('An error occurred ' + response.statusText, true)
+        }
+    },
+
+    async fetchActionTypes() {
+        try {
+            const response = await fetch(`/api/action-types`);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            this.actionTypes = await response.json();
+        } catch (error) {
+            console.error('Error fetching the data:', error);
+            this.showToast('Error loading action types: ' + error.message, true);
+        }
+    },
+
+    formatActionTypeName(name) {
+        return name.toLowerCase()
+            .replace(/_/g, " ")
+            .replace(/(^\w{1})/g, match => match.toUpperCase());
+    },
+
+    updateName(newName) {
+        var currName = this.currentSchedule.name
+            .toUpperCase()
+            .replace(/ /g, "_");
+
+        if(this.actionTypes.includes(currName)) {
+            this.currentSchedule.name = this.formatActionTypeName(newName);
+        }
+    },
+
+    toggleExecuted(release) {
+        release.executed = !release.executed;
+        if(release.executed) {
+            release.status = 'EXECUTED';
+        } else {
+            release.status = 'DRAFT';
         }
     },
 

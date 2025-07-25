@@ -45,7 +45,7 @@ public class Scheduler implements AutoCloseable {
             return;
         }
 
-        log.info("Scheduling execution of task: id={}, target={}", release.getId(), firstNonNull(release.getReleaseTargetName(), release.getReleaseTargetId()));
+        log.info("Scheduling execution of task: id={}, target={}", release.getId(), firstNonNull(release.getReleaseActionType(), release.getReleaseTargetId()));
         String releaseId = release.getId();
 
         if (targetDate.isEqual(LocalDate.now()) || targetDate.isBefore(LocalDate.now())) {
@@ -74,17 +74,17 @@ public class Scheduler implements AutoCloseable {
                 log.info("Execution task: id={}", releaseId);
                 var result = actionHandler.handle(release);
                 if(result.isExecuted()) {
-                    release.setExecuted(true);
                     release.status(EXECUTED);
                     repository.markAsExecuted(releaseId);
+                    log.info("Executed task: id={}", releaseId);
                 } else if(result.hasNoChanges()){
                     log.debug("Release still awaits of manual action from user: {}", release);
                 } else {
                     release.status(result.getStatus());
                     release.getMetadata().put("result", result.getMetadata());
                     repository.update(release);
+                    log.info("Save changes for task: id={}", releaseId);
                 }
-                log.info("Executed task: id={}", releaseId);
             } catch (Exception e) {
                 log.error("ERROR: ", e);
             }

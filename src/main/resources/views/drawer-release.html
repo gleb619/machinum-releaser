@@ -27,7 +27,7 @@
                     <div class="flex justify-between items-start">
                         <div>
                             <div class="font-semibold flex items-center">
-                                <img :src="getTargetIcon(release.name)" class="w-4 h-4 mr-2">
+                                <img :src="getTargetIcon(release.actionType)" class="w-4 h-4 mr-2">
                                 <span x-text="release.name"></span>
                             </div>
                             <div class="text-sm text-gray-600"
@@ -45,6 +45,14 @@
                             </div>
                         </div>
                         <div class="flex">
+                            <button @click="copyRelease(release)" class="mr-2 text-blue-500 hover:text-blue-700">
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24">
+                                    <path d="M6 11C6 8.17157 6 6.75736 6.87868 5.87868C7.75736 5 9.17157 5 12 5H15C17.8284 5 19.2426 5 20.1213 5.87868C21 6.75736 21 8.17157 21 11V16C21 18.8284 21 20.2426 20.1213 21.1213C19.2426 22 17.8284 22 15 22H12C9.17157 22 7.75736 22 6.87868 21.1213C6 20.2426 6 18.8284 6 16V11Z"
+                                          stroke="currentColor" stroke-width="1.5"/>
+                                    <path d="M6 19C4.34315 19 3 17.6569 3 16V10C3 6.22876 3 4.34315 4.17157 3.17157C5.34315 2 7.22876 2 11 2H15C16.6569 2 18 3.34315 18 5"
+                                          stroke="currentColor" stroke-width="1.5"/>
+                                </svg>
+                            </button>
                             <button @click="deleteRelease(release.id)" class="text-red-500 hover:text-red-700">
                                 <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-linecap="round" stroke-linejoin="round"
@@ -73,17 +81,22 @@
                     <div class="mt-1 relative">
                         <select class="block w-full px-4 py-2 mt-1 text-base leading-tight text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:shadow-outline-blue focus:border-blue-300 sm:text-sm sm:leading-5"
                                 required
-                                x-model="currentSchedule.name"
-                                @input.debounce.300ms="backupValue('currentSchedule', resolveCurrentSchedule)">
-                            <!--/* Note, that these names is hardcoded on backend side, do not delete/change them */-->
+                                x-model="currentSchedule.actionType"
+                                @input.debounce.300ms="updateName(currentSchedule.actionType); backupValue('currentSchedule', resolveCurrentSchedule)">
                             <option disabled value="">Select a platform</option>
-                            <option value="Telegram">Telegram</option>
-                            <option value="Website">Website</option>
-                            <option value="App">App</option>
-                            <option value="Discord">Discord</option>
-                            <option value="Email">Email</option>
+                            <template :key="actionType" x-for="actionType in actionTypes">
+                                <option :value="actionType" x-text="formatActionTypeName(actionType)">Action Type</option>
+                            </template>
                         </select>
                     </div>
+                    <small class="mt-2 text-sm text-gray-300 opacity-75 italic">Type of handler for release.</small>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700" for="startDate">Name</label>
+                    <input class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2" id="name" type="text"
+                           x-model="currentSchedule.name"
+                           @input.debounce.300ms="backupValue('currentSchedule', resolveCurrentSchedule)">
                     <small class="mt-2 text-sm text-gray-300 opacity-75 italic">Name of system for release.</small>
                 </div>
 
@@ -190,7 +203,7 @@
 
                 <hr class="h-px my-8 bg-gray-200 border-0 dark:bg-gray-700">
 
-                <template x-if="currentSchedule.name == 'Telegram'">
+                <template x-if="currentSchedule.actionType == 'TELEGRAM'">
                     <div>
                         <label class="block text-sm font-medium text-gray-700" for="periodCount">Chat type</label>
                         <select class="block w-full px-4 py-2 mt-1 text-base leading-tight text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:shadow-outline-blue focus:border-blue-300 sm:text-sm sm:leading-5"
@@ -206,7 +219,7 @@
                     </div>
                 </template>
 
-                <template x-if="currentSchedule.name == 'Website'">
+                <template x-if="currentSchedule.actionType == 'WEBSITE'">
                     <div>
                         <label class="block text-sm font-medium text-gray-700" for="periodCount">Website Url</label>
                         <input class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2" id="websiteUrl" type="url"

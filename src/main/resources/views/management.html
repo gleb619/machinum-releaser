@@ -61,7 +61,7 @@
                             x-model="filters.targetId">
                         <option value="">All Targets</option>
                         <template :key="`${target.releaseTargetId}-${index}`" x-for="(target, index) in uniqueTargets">
-                            <option :value="target.releaseTargetId" x-text="target.releaseTargetName"></option>
+                            <option :value="target.releaseTargetId" x-text="formatActionTypeName(target.releaseActionType)"></option>
                         </template>
                     </select>
                 </div>
@@ -120,8 +120,8 @@
                             x-bind:title="'ID: ' + release.id">
                             <td class="py-2 px-4 border-b">
                                 <div class="font-semibold flex items-center">
-                                    <img :src="getTargetIcon(release.releaseTargetName)" class="w-4 h-4 mr-2">
-                                    <span x-text="release.releaseTargetName"></span>
+                                    <img :src="getTargetIcon(release.releaseActionType)" class="w-4 h-4 mr-2">
+                                    <span x-text="release.releaseActionType"></span>
                                 </div>
                             </td>
                             <td class="py-2 px-4 border-b">

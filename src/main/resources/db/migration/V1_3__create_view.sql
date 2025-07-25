@@ -4,13 +4,14 @@ WITH data AS (
  SELECT rt0.id,
     rt0.book_id,
     rt0.name,
+    rt0.action_type,
     rt0.enabled,
     rt0.metadata,
     rt0.created_at,
     r0.release_target_id,
     r0.date,
     r0.chapters,
-    r0.executed
+    (r0.status = 'EXECUTED') AS executed
    FROM release_targets rt0
      LEFT JOIN releases r0 ON r0.release_target_id::text = rt0.id::text
 ), main_report AS (
@@ -22,6 +23,7 @@ WITH data AS (
     d2.id,
     d2.book_id,
     d2.name,
+    d2.action_type,
     d2.enabled,
     d2.metadata,
     d2.created_at,
@@ -40,6 +42,7 @@ WITH data AS (
  SELECT d3.id,
     d3.book_id,
     d3.name,
+    d3.action_type,
     d3.enabled,
     d3.metadata,
     d3.created_at,
@@ -50,4 +53,4 @@ WITH data AS (
    FROM main_report d3
      LEFT JOIN next_releases_report d4 ON d4.id = d3.id
   WHERE d3.id_num = 1 AND d4.id_num = 1
-  ORDER BY d3.created_at, d3.name;
+  ORDER BY d3.created_at, d3.action_type;

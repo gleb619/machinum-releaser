@@ -38,7 +38,7 @@ export function chartApp() {
             const canvasId = `chart-${chartIndex}`;
             const releaseSchedule = this.releasesSchedule.find(item => item.releaseTargetId === targetId);
             this.targetCharts.push({
-                targetName: releaseSchedule.releaseTargetName,
+                targetName: releaseSchedule.releaseActionType,
                 canvasId,
                 releasesSchedule
             });

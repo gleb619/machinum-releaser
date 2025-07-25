@@ -3,15 +3,14 @@ package machinum.release;
 import com.fasterxml.jackson.annotation.JsonUnwrapped;
 import jakarta.validation.Valid;
 import lombok.*;
+import machinum.scheduler.ActionHandler.ActionType;
 import machinum.util.MetadataSupport;
 import machinum.util.Pair;
 
-import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.function.Function;
-import java.util.zip.CRC32;
 
 import static machinum.release.Release.ReleaseConstants.PAGES_PARAM;
 import static machinum.util.Util.toPair;
@@ -24,12 +23,10 @@ import static machinum.util.Util.toPair;
 public class Release implements MetadataSupport<Release> {
 
     private String id;
-    private String releaseTargetName;
+    private String releaseActionType;
     private String releaseTargetId;
     private LocalDate date;
     private int chapters;
-    @Deprecated(forRemoval = true)
-    private boolean executed;
     private String status;
     @Builder.Default
     @ToString.Exclude
@@ -39,6 +36,14 @@ public class Release implements MetadataSupport<Release> {
     private LocalDateTime createdAt = LocalDateTime.now();
     @Builder.Default
     private LocalDateTime updatedAt = LocalDateTime.now();
+
+    public void setExecuted(boolean ignore) {
+        //ignore
+    }
+
+    public boolean isExecuted() {
+        return ReleaseStatus.EXECUTED.name().equals(status);
+    }
 
     public Pair<Integer, Integer> toPageRequest() {
         String pages = metadata(PAGES_PARAM);
@@ -80,6 +85,7 @@ public class Release implements MetadataSupport<Release> {
         private String id;
         private String bookId;
         private String name;
+        private ActionType actionType;
         private boolean enabled;
         @Builder.Default
         @ToString.Exclude
@@ -89,14 +95,6 @@ public class Release implements MetadataSupport<Release> {
         private LocalDateTime createdAt = LocalDateTime.now();
         @Builder.Default
         private LocalDateTime updatedAt = LocalDateTime.now();
-
-        @Deprecated(forRemoval = true)
-        public String getDiscriminatorId() {
-            CRC32 fileCRC32 = new CRC32();
-            String key = "%s-%s-%s".formatted(getBookId(), getName(), getMetadata());
-            fileCRC32.update(key.getBytes(StandardCharsets.UTF_8));
-            return String.format(Locale.US,"%08X", fileCRC32.getValue());
-        }
 
     }
 

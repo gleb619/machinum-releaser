@@ -5,6 +5,8 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
+import machinum.scheduler.ActionHandler;
+import machinum.scheduler.ActionHandler.ActionType;
 
 import java.time.LocalDate;
 import java.util.HashMap;
@@ -16,6 +18,10 @@ import java.util.Map;
 @Builder(toBuilder = true)
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public class ReleaseScheduleRequest {
+
+    @NotNull
+    @NotEmpty
+    private ActionType actionType;
 
     @NotNull
     @NotEmpty

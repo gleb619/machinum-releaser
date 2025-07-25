@@ -38,6 +38,8 @@ import static machinum.website.WebsiteHandler.NumberAllocator.allocator;
 @RequiredArgsConstructor
 public class WebsiteHandler implements ActionHandler, AutoCloseable {
 
+    public static final String CONTENT_TYPE_HTML = "text/html";
+
     private final ReleaseRepository releaseRepository;
     private final BookRestClient bookRestClient;
     private final String workDir;
@@ -51,7 +53,7 @@ public class WebsiteHandler implements ActionHandler, AutoCloseable {
         var siteUrl = (String) target.metadata(SITE_URL_PARAM);
         var sitePort = (Integer) target.metadata(SITE_PORT_PARAM, 8080);
 
-        log.info("Starting chapter release for website: {}, site={}", book.getRuName(), siteUrl);
+        log.info("Starting chapter release for website: title={}, site={}", book.getRuName(), siteUrl);
         var release = context.getRelease();
         var chaptersRequest = release.toPageRequest();
         var remoteBookId = context.getRemoteBookId();
@@ -65,6 +67,7 @@ public class WebsiteHandler implements ActionHandler, AutoCloseable {
 
         return switch (release.status()) {
             case DRAFT -> {
+                log.debug("Will generate external link to start publishing process for: {}", releaseSessionId);
                 var link = generateLink(siteUrl, sitePort, releaseSessionId, chaptersRequest);
 
                 yield HandlerResult.builder()
@@ -72,7 +75,10 @@ public class WebsiteHandler implements ActionHandler, AutoCloseable {
                         .metadata("link", link)
                         .build();
             }
-            case MANUAL_ACTION_REQUIRED -> HandlerResult.noChanges();
+            case MANUAL_ACTION_REQUIRED -> {
+                log.debug("Await user's action for: {}", releaseSessionId);
+                yield HandlerResult.noChanges();
+            }
             default -> throw new AppException("Unknown state of release: id={}, state={}", release.getId(), release.getStatus());
         };
     }
@@ -110,29 +116,29 @@ public class WebsiteHandler implements ActionHandler, AutoCloseable {
                             .after(ctx -> log.info("<< {} {} {}", ctx.method(), ctx.url(), ctx.status()))
                             .exception(ctx -> ctx.status(500).render(Map.of("status", 500)))
                     )
-                    .onStarted(() -> log.debug("Release server has been started"))
+                    .onStarted(() -> log.debug("Release server has been started for: {}", releaseSessionId))
             ).get()); //CompletableFuture of HttpServer
         }
     }
 
     @Synchronized
     private CheckResponse registerTab(Context ctx, String awaitedReleaseSessionId) {
-        log.debug("Prepare to register tab for next communication");
         var tabId = ctx.path("tabId");
         var releaseSessionId = ctx.queryParam("releaseSessionId");
+        log.debug("Prepare to register tab for next communication: tabId={}, sessionId={}", tabId, releaseSessionId);
 
         if(!releaseSessionId.equals(awaitedReleaseSessionId)) {
             log.debug("The request failed verification due wrong releaseSessionId: {} <> {}", releaseSessionId, awaitedReleaseSessionId);
-            return new CheckResponse(Boolean.FALSE);
+            return new CheckResponse("Wrong release sessionId", Boolean.FALSE);
         }
 
         if(!ctx.session().exists("tabId") || ctx.session().contains("tabId", tabId)) {
             //Continue work only with one tab in browser, that support current release flow
             ctx.session().add("tabId", tabId);
-            return new CheckResponse(Boolean.TRUE);
+            return new CheckResponse("", Boolean.TRUE);
         } else {
-            log.debug("The request failed verification due wrong releaseSessionId: {} <> {}", releaseSessionId, awaitedReleaseSessionId);
-            return new CheckResponse(Boolean.FALSE);
+            log.debug("The request failed verification due wrong tabId: {} <> {}", tabId, ctx.session().get("tabId"));
+            return new CheckResponse("Wrong tabId", Boolean.FALSE);
         }
     }
 
@@ -143,7 +149,7 @@ public class WebsiteHandler implements ActionHandler, AutoCloseable {
 
         boolean isAllocated = allocator.isAllocated(chapterNumber);
 
-        if(isAllocated && chapterNumber > chapters.getLast().getNumber()) {
+        if(chapterNumber > chapters.getLast().getNumber()) {
            return new ChapterResponse("", "", true, true);
         } else if(isAllocated) {
            return new ChapterResponse("N/A", "Chapter has already been published", false, false);
@@ -168,18 +174,21 @@ public class WebsiteHandler implements ActionHandler, AutoCloseable {
         var releaseSessionId = ctx.queryParam("releaseSessionId");
         boolean success = releaseSessionId.equals(awaitedReleaseSessionId);
         if(success) {
+            log.debug("Release marked as executed: {}", release.getId());
             releaseRepository.markAsExecuted(release.getId());
             CompletableFuture.runAsync(() -> {
                 try {
-                    log.debug("Closing release server...");
+                    log.debug("Closing release server: {}", awaitedReleaseSessionId);
                     TimeUnit.SECONDS.sleep(1);
                     close();
-                    log.debug("Release server is closed");
+                    log.debug("Release server is closed: {}", awaitedReleaseSessionId);
                 } catch (Exception e) {
                     throw new RuntimeException(e);
                 }
             });
         }
+
+        ctx.header(Context.CONTENT_TYPE, CONTENT_TYPE_HTML);
 
         return responseHtml(success);
     }
@@ -239,6 +248,7 @@ public class WebsiteHandler implements ActionHandler, AutoCloseable {
         var httpServer = server.get();
         if(Objects.nonNull(httpServer)) {
             httpServer.stop();
+            server.set(null);
         }
     }
 

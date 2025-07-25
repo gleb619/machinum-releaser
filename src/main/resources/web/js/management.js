@@ -55,10 +55,10 @@ export function managementApp() {
     get uniqueTargets() {
         const targets = [];
         return Array.from(this.releasesSchedule
-            .map(({ releaseTargetId, releaseTargetName }) => ({ releaseTargetId, releaseTargetName }))
+            .map(({ releaseTargetId, releaseActionType }) => ({ releaseTargetId, releaseActionType }))
             .reduce((map, obj) => map.set(obj.releaseTargetId, obj), new Map())
             .values()
-        ).sort((a, b) => a.releaseTargetName.localeCompare(b.releaseTargetName));
+        ).sort((a, b) => a.releaseActionType.localeCompare(b.releaseActionType));
     },
 
     get filteredReleases() {
@@ -110,7 +110,7 @@ export function managementApp() {
         if (this.filters.sortBy === 'date') {
             filtered.sort((a, b) => new Date(a.date) - new Date(b.date));
         } else if (this.filters.sortBy === 'target') {
-            filtered.sort((a, b) => a.releaseTargetName.localeCompare(b.releaseTargetName));
+            filtered.sort((a, b) => a.releaseActionType.localeCompare(b.releaseActionType));
         } else if (this.filters.sortBy === 'chapters') {
             filtered.sort((a, b) => b.chapters - a.chapters);
         }
@@ -184,17 +184,37 @@ export function managementApp() {
     },
 
     // Mark release as pending
-    markAsPending(release) {
+    async markAsPending(release) {
         // In a real app, you would call an API to update the release
         release.executed = false;
+        release.status = 'DRAFT';
 
-        this.processCharts();
+        try {
+            const response = await fetch(`/api/releases/${release.id}/executed`, {
+              method: 'PATCH',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({})
+            });
+
+            if (response.status === 204) {
+                this.showToast('Flag updated successfully');
+                this.processCharts();
+            } else {
+                throw new Error('Failed to mark as pending');
+            }
+        } catch (error) {
+          console.error('Error action execution:', error);
+          this.showToast('Failed to execute action: ' + error.message, true);
+        }
     },
 
     // Bulk execute releases
     bulkExecuteReleases() {
         this.filteredReleases.forEach(release => {
             release.executed = true;
+            release.status = 'DRAFT';
         });
 
         //TODO Update on backend
@@ -232,7 +252,6 @@ export function managementApp() {
           throw new Error('Failed to execute release');
         }
 
-        this.markAsExecuted(release);
         this.showToast('Book execution is scheduled!');
       } catch (error) {
         console.error('Error schedule execution:', error);

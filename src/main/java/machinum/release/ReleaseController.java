@@ -11,6 +11,8 @@ import lombok.extern.slf4j.Slf4j;
 import machinum.exception.AppException;
 import machinum.release.Release.ReleaseView;
 import machinum.release.ReleaseRepository.ReleaseTargetRepository;
+import machinum.scheduler.ActionHandler;
+import machinum.scheduler.ActionHandler.ActionType;
 import machinum.scheduler.Scheduler;
 
 import java.time.LocalDate;
@@ -18,6 +20,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
 
+import static machinum.release.Release.ReleaseStatus.DRAFT;
 import static machinum.release.Release.ReleaseStatus.EXECUTED;
 
 @Slf4j
@@ -80,6 +83,11 @@ public class ReleaseController {
         return repository.findByBookId(bookId);
     }
 
+    @GET("/release-targets/{releaseTargetId}/releases")
+    public List<Release> getTargetReleases(@PathParam("releaseTargetId") String releaseTargetId, Context ctx) {
+        return repository.findByTargetId(releaseTargetId);
+    }
+
     @DELETE("/releases/{id}")
     public StatusCode deleteRelease(@PathParam("id") String id, Context ctx) {
         var result = targetRepository.delete(id);
@@ -101,8 +109,7 @@ public class ReleaseController {
                                    Context ctx) {
         var result = repository.findById(id).map(releaseFromDb -> {
             if(field.equals("executed")) {
-                releaseFromDb.setExecuted(!releaseFromDb.isExecuted());
-                releaseFromDb.status(EXECUTED);
+                releaseFromDb.status(releaseFromDb.isExecuted() ? DRAFT : EXECUTED);
             }
             releaseFromDb.setUpdatedAt(LocalDateTime.now());
             return repository.update(releaseFromDb);
@@ -124,6 +131,11 @@ public class ReleaseController {
         }).orElse(Boolean.FALSE);
 
         ctx.setResponseCode(result ? StatusCode.NO_CONTENT : StatusCode.NOT_FOUND);
+    }
+
+    @GET("/action-types")
+    public List<ActionType> getActionTypes() {
+        return List.of(ActionType.values());
     }
 
     public static ReleaseController_ releaseController(Jooby jooby) {

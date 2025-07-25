@@ -19,7 +19,7 @@ export function utilsApp() {
       },
 
       loadState(name) {
-        const currValue = localStorage.getItem(name);
+        const currValue = JSON.parse(localStorage.getItem(name));
         this[name] = !!currValue;
       },
 
@@ -50,5 +50,15 @@ export function utilsApp() {
           this[name] = currValue || defaultValue;
         }
       },
+
+      async waitForElement(selector, timeout = 10000) {
+          const startTime = Date.now();
+          while (Date.now() - startTime < timeout) {
+              const element = document.querySelector(selector);
+              if (element) return element;
+              await new Promise(resolve => setTimeout(resolve, 100));
+          }
+          throw new Error(`Element ${selector} not found within the given time`);
+      }
   }
 }

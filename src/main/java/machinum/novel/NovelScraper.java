@@ -32,6 +32,7 @@ import static machinum.util.CheckedSupplier.checked;
 
 @Slf4j
 @RequiredArgsConstructor
+@Deprecated(forRemoval = true)
 public class NovelScraper {
 
     private final ScraperConfig config;

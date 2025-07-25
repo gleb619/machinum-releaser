@@ -49,7 +49,7 @@ class SchedulerTest {
                 .handle(any());
 
         var release = Release.builder()
-                .executed(false)
+                .status(Release.ReleaseStatus.DRAFT.name())
                 .date(LocalDate.now())
                 .build();
 
