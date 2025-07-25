@@ -15,6 +15,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+import static machinum.telegram.TelegramClient.MPEG_CONTENT_TYPE;
 import static machinum.telegram.TelegramClient.TELEGRAM_LIMIT;
 import static machinum.telegram.TelegramMessageDSL.dsl;
 
@@ -152,6 +153,44 @@ public class TelegramService {
         log.info("Created message: chatId={}, message={}", chatId, message);
 
         return client.sendFileWithMessage(chatId, message, EPUB_CONTENT_TYPE, fileName, document);
+    }
+
+    @SneakyThrows
+    public Response publishNewAudio(String chatId, String name, Integer synopsisMessageId,
+                                      String chapters, String status, String fileName, byte[] audio) {
+        log.info("Prepare to start a telegram session: {}", LocalDateTime.now());
+
+        String message = dsl()
+                .customEmoji("\ud83c\udfa7")
+                .bold(" Новый выпуск!")
+                .newLine()
+                .text("Мы рады сообщить, что вышла. ")
+                .bold("новая аудиоверсия")
+                .text("глав — теперь вы можете не только читать, но и ")
+                .bold("слушать")
+                .text(" любимую историю! Погрузитесь в атмосферу романа в любом месте и в любое время.")
+                .newLine()
+                .customEmoji("\ud83d\udccc")
+                .bold(" Подробности:").newLine()
+                .list(dsl -> dsl.listOf(
+                        dsl.bold("Канал: ").mention(telegramProperties.getChannelName()).dump(),
+                        dsl.bold("Название: ").replyTo(telegramProperties.getChannelName(), name, synopsisMessageId).dump(),
+                        dsl.bold("Главы: ").text(chapters).dump(),
+                        dsl.bold("Формат: ").text("Аудио").dump(),
+                        dsl.bold("Статус: ").text(status).dump()
+                ))
+                .newLine(1)
+                .customEmoji("\ud83d\udcac")
+                .text(" Будем рады вашим отзывам — расскажите, как звучит история в новом формате!")
+                .newLine()
+                .text("Оставайтесь с нами и приятного прослушивания! ")
+                .customEmoji("\ud83c\udf99️")
+                .customEmoji("\ud83d\udcda")
+                .build();
+
+        log.info("Created message: chatId={}, message={}", chatId, message);
+
+        return client.sendFileWithMessage(chatId, message, MPEG_CONTENT_TYPE, fileName, audio);
     }
 
     @SneakyThrows

@@ -5,9 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pengrad.telegrambot.TelegramBot;
 import com.pengrad.telegrambot.model.Message;
 import com.pengrad.telegrambot.model.request.*;
-import com.pengrad.telegrambot.request.SendDocument;
-import com.pengrad.telegrambot.request.SendMediaGroup;
-import com.pengrad.telegrambot.request.SendMessage;
+import com.pengrad.telegrambot.request.*;
 import com.pengrad.telegrambot.response.MessagesResponse;
 import com.pengrad.telegrambot.response.SendResponse;
 import lombok.*;
@@ -29,6 +27,7 @@ import java.util.stream.Stream;
 public class TelegramClient implements AutoCloseable {
 
     public static final int TELEGRAM_LIMIT = 1024;
+    public static final String MPEG_CONTENT_TYPE = "audio/mpeg";
 
     private final TelegramBot bot;
     private final TelegramProperties telegramProperties;
@@ -48,17 +47,28 @@ public class TelegramClient implements AutoCloseable {
 
     @SneakyThrows
     public Response sendFileWithMessage(@NonNull String chatId, @NonNull String messageText,
-                                        @NonNull String contentType, String fileName, byte[] document) {
-        if (document.length <= 0) {
+                                        @NonNull String contentType, String fileName, byte[] data) {
+        if (data.length <= 0) {
             throw new IllegalArgumentException("File doesn't exists");
         }
 
-        SendDocument request = new SendDocument(chatId, document)
-                .fileName(fileName)
-                .contentType(contentType)
-                .caption(messageText)
-                .parseMode(ParseMode.HTML)
-                .allowSendingWithoutReply(false);
+
+        AbstractMultipartRequest<?> request;
+        if(MPEG_CONTENT_TYPE.equals(contentType)) {
+            request = new SendAudio(chatId, data)
+                    .fileName(fileName)
+                    .contentType(contentType)
+                    .caption(messageText)
+                    .parseMode(ParseMode.HTML)
+                    .allowSendingWithoutReply(false);
+        } else {
+            request = new SendDocument(chatId, data)
+                    .fileName(fileName)
+                    .contentType(contentType)
+                    .caption(messageText)
+                    .parseMode(ParseMode.HTML)
+                    .allowSendingWithoutReply(false);
+        }
 
         var response = bot.execute(request);
 

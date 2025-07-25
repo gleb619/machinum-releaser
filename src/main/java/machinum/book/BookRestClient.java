@@ -13,6 +13,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -23,12 +24,12 @@ public class BookRestClient {
 
     private final HttpClient httpClient;
     private final ChapterJsonlConverter chapterJsonlConverter;
-    private final CacheService cache;
+    private final CacheService inMemoryCache;
     private final String baseUrl;
 
 
     public List<BookExportResult> getAllBookTitlesCached() {
-        return cache.get("titles", this::getAllBookTitles);
+        return inMemoryCache.get("titles", this::getAllBookTitles);
     }
 
     public List<BookExportResult> getAllBookTitles() {
@@ -84,7 +85,11 @@ public class BookRestClient {
     }
 
     public List<Chapter> getReadyChaptersCached(String id, Integer from, Integer to) {
-        return cache.get("chapters_%s_%s_%s".formatted(id, from, to), () -> getReadyChapters(id, from, to));
+        return inMemoryCache.get("chapters_%s_%s_%s".formatted(id, from, to), () -> getReadyChapters(id, from, to));
+    }
+
+    public byte[] getAudioCached(String id, Integer from, Integer to, byte[] coverArt) {
+        return inMemoryCache.get("audio_%s_%s_%s".formatted(id, from, to), () -> getAudio(id, from, to, coverArt));
     }
 
     @SneakyThrows
@@ -109,6 +114,26 @@ public class BookRestClient {
         }
 
         return chapterJsonlConverter.fromString(response.body());
+    }
+
+    @SneakyThrows
+    public byte[] getAudio(String bookId, Integer from, Integer to, byte[] coverArt) {
+        var urlBuilder = "%s/api/books/%s/audio?from=%d&to=%d".formatted(baseUrl, bookId, from, to);
+
+        log.debug("Send request to get audio: bookId={}", bookId);
+
+        var response = httpClient.send(HttpRequest.newBuilder()
+                .uri(URI.create(urlBuilder))
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofByteArray(coverArt))
+                .build(), HttpResponse.BodyHandlers.ofByteArray());
+
+        if (response.statusCode() != 200) {
+            log.error("Can't get book's audio: bookId={}\n{}", bookId, new String(response.body(), StandardCharsets.UTF_8));
+            throw new AppException("Can't get book's audio");
+        }
+
+        return response.body();
     }
 
     public record BookExportResult(String id, String title, Integer chaptersCount) {

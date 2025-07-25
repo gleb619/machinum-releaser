@@ -1,9 +1,9 @@
 package machinum.telegram;
 
-import lombok.AccessLevel;
-import lombok.NoArgsConstructor;
-import lombok.RequiredArgsConstructor;
+import lombok.*;
 import lombok.extern.slf4j.Slf4j;
+import machinum.audio.TTSRestClient;
+import machinum.audio.TTSRestClient.Metadata;
 import machinum.book.Book;
 import machinum.book.BookRestClient;
 import machinum.exception.AppException;
@@ -12,8 +12,12 @@ import machinum.image.cover.CoverService;
 import machinum.image.cover.CoverService.CoverInfo;
 import machinum.markdown.MarkdownConverter;
 import machinum.pandoc.PandocRestClient;
+import machinum.pandoc.PandocRestClient.PandocRequest;
 import machinum.release.ReleaseRepository;
 import machinum.scheduler.ActionHandler;
+import machinum.telegram.TelegramProperties.ChatType;
+import machinum.audio.TextXmlReader.TextInfo;
+import machinum.util.Pair;
 
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
@@ -23,10 +27,13 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.regex.Pattern;
 
+import static machinum.audio.TTSRestClient.Metadata.*;
+import static machinum.audio.TTSRestClient.Metadata.createNew;
 import static machinum.pandoc.PandocRestClient.PandocRequest.createNew;
 import static machinum.release.Release.ReleaseConstants.PAGES_PARAM;
 import static machinum.telegram.TelegramHandler.TelegramConstants.TELEGRAM_BOOK_ID;
 import static machinum.telegram.TelegramHandler.TelegramConstants.TELEGRAM_CHAPTER_ID;
+import static machinum.telegram.TelegramProperties.ChatType.TEST;
 import static machinum.telegram.TelegramProperties.ChatType.of;
 
 /**
@@ -48,6 +55,8 @@ public class TelegramHandler implements ActionHandler {
     private final MarkdownConverter markdownConverter;
     private final PandocRestClient pandocRestClient;
     private final CoverService coverService;
+    private final TelegramAudio telegramAudio;
+    private final TextInfo textInfo;
 
     /**
      * Handles the action context based on whether it's the first or subsequent release.
@@ -57,11 +66,17 @@ public class TelegramHandler implements ActionHandler {
      */
     @Override
     public HandlerResult handle(ActionContext context) {
-        if (context.isFirstRelease()) {
-            releaseBook(context);
-            releaseChapters(context);
+        if(ActionType.TELEGRAM.equals(context.getActionType())) {
+            if (context.isFirstRelease()) {
+                releaseBook(context);
+                releaseChapters(context);
+            } else {
+                releaseChapters(context);
+            }
+        } else if(ActionType.TELEGRAM_AUDIO.equals(context.getActionType())) {
+            releaseAudio(context);
         } else {
-            releaseChapters(context);
+            throw new AppException("Unknown actionType: %s", context.getActionType());
         }
 
         return HandlerResult.executed();
@@ -102,12 +117,134 @@ public class TelegramHandler implements ActionHandler {
      * @param context The ActionContext containing the Book and Release to be released.
      */
     private void releaseChapters(ActionContext context) {
+        var tgContext = resolveTgContext(context);
+
+        log.debug("Fetching ready chapters for: bookID={}, mode={}", tgContext.getRemoteBookId(), tgContext.getChatType());
+
+        var chapterList = bookRestClient.getReadyChaptersCached(tgContext.getRemoteBookId(), tgContext.getChaptersRequest().first(), tgContext.getChaptersRequest().second());
+        var markdowns = chapterList.stream()
+                .map(markdownConverter::toMarkdown)
+                .map(s -> s.getBytes(StandardCharsets.UTF_8))
+                .toList();
+        var image = imageRepository.getById(tgContext.getBook().getImageId());
+        var partIndex = context.getReleasePosition() + 1;
+
+        var number = partIndex + "";
+
+        log.debug("Generating cover image for book: {}, mode={}", tgContext.getBook().getRuName(), tgContext.getChatType());
+
+        var coverInfo = new CoverInfo(number, tgContext.getBook().getRuName(), "M T.\nNOVELS", telegramProperties.getChannelLink(), "@mt_novel", "Subscribe");
+        var coverImage = coverService.generateBookCover(image, coverInfo);
+        var fileName = NameUtil.toFileSnakeCase(tgContext.getBook().getEnName()) + "_%s.epub".formatted(partIndex);
+        var chatId = telegramProperties.getChatId(tgContext.getChatType());
+
+        log.debug("Converting to EPUB for book: {}, mode={}", tgContext.getBook().getRuName(), tgContext.getChatType());
+        var epubBytes = pandocRestClient.convertToEpubCached(PandocRequest.createNew(b -> b
+                .startIndex(tgContext.getChaptersRequest().first())
+                .markdownFiles(markdowns)
+                .coverImage(coverImage.getData())
+                .coverContentType(image.getContentType())
+                .title(tgContext.getBook().getRuName())
+                .subtitle("Часть %s".formatted(partIndex))
+                .author(tgContext.getBook().getAuthor())
+                .publisher(chatId)
+                .publisherInfo(textInfo.getEpub().getPublisherInfo())
+                //.edition("")
+                .rights(textInfo.getEpub().getRights())
+                //.legalRights("")
+                //.disclaimer("")
+                .description(tgContext.getBook().getDescription())
+                .keywords(String.join(", ", tgContext.getBook().getGenre()))
+                .date(startOfYear(tgContext.getBook().getYear()))
+                .pubdate(formatDate(context.getReleaseTarget().getCreatedAt().toLocalDate()))
+                //.website("")
+                .socialLinks(List.of(
+                    telegramProperties.getChannelLink()
+                ))
+                .outputFilename(fileName)
+        ));
+
+        if (Objects.nonNull(epubBytes) && epubBytes.length > 0) {
+            log.info("Publishing new chapter for book: {}, mode={}", tgContext.getBook().getRuName(), tgContext.getChatType());
+            var response = telegramService.publishNewChapter(chatId, tgContext.getBook().getRuName(),
+                    tgContext.getTgBookId(),
+                    tgContext.getChapters(),
+                    tgContext.getStatus(),
+                    fileName,
+                    epubBytes);
+            context.set(TELEGRAM_CHAPTER_ID, response.messageId());
+
+            context.getRelease().addMetadata(TELEGRAM_CHAPTER_ID, response.messageId());
+        } else {
+            log.error("Epub generation failed for book: {}, mode={}", tgContext.getBook().getRuName(), tgContext.getChatType());
+            throw new AppException("Epub generation is failed");
+        }
+    }
+
+    private void releaseAudio(ActionContext context) {
+        var tgContext = resolveTgContext(context);
+        var partIndex = context.getReleasePosition() + 1;
+        var image = imageRepository.getById(tgContext.getBook().getImageId());
+        var number = partIndex + "";
+
+        log.debug("Generating cover image for book: {}, mode={}", tgContext.getBook().getRuName(), tgContext.getChatType());
+
+        var coverInfo = new CoverInfo(number, tgContext.getBook().getRuName(), "M T.\nNOVELS",
+                telegramProperties.getChannelLink(),
+                "@mt_novel",
+                "Subscribe");
+        var coverImage = coverService.generateBookCover(image, coverInfo);
+
+        log.debug("Fetching ready chapters for: bookID={}, mode={}", tgContext.getRemoteBookId(), tgContext.getChatType());
+
+        var from = tgContext.getChaptersRequest().first();
+        var fileName = NameUtil.toFileSnakeCase(tgContext.getBook().getEnName()) + "_%s.mp3".formatted(partIndex);
+        var to = tgContext.getChaptersRequest().second();
+        var audioBytes = bookRestClient.getAudioCached(tgContext.getRemoteBookId(), from, to, coverImage.getData());
+
+        var chatId = telegramProperties.getChatId(TEST);
+        //TODO uncomment
+        //var chatId = telegramProperties.getChatId(tgContext.getChatType());
+        var targetAudio = telegramAudio.putTogether(fileName, Metadata.createNew(b -> b
+                .title(tgContext.getBook().getRuName())
+                //TODO add voice artist name here
+                .artist(String.join(",", tgContext.getBook().getAuthor()))
+                .album(tgContext.getBook().getEnName())
+                .year(String.valueOf(LocalDate.now().getYear()))
+                .genre("Аудиокнига")
+                .language("rus")
+                .track(number)
+                .publisher(chatId)
+                .copyright(textInfo.getEpub().getRights())
+                .comments(textInfo.getTts().getDisclaimer())
+        ), audioBytes);
+
+        if (Objects.nonNull(targetAudio) && targetAudio.length > 0) {
+            log.info("Publishing new chapter for book: {}, mode={}", tgContext.getBook().getRuName(), tgContext.getChatType());
+            var response = telegramService.publishNewAudio(chatId, tgContext.getBook().getRuName(),
+                    tgContext.getTgBookId(),
+                    tgContext.getChapters(),
+                    tgContext.getStatus(),
+                    fileName,
+                    targetAudio);
+            context.set(TELEGRAM_CHAPTER_ID, response.messageId());
+
+            context.getRelease().addMetadata(TELEGRAM_CHAPTER_ID, response.messageId());
+        } else {
+            log.error("Mp3 generation failed for book: {}, mode={}", tgContext.getBook().getRuName(), tgContext.getChatType());
+            throw new AppException("Mp3 generation is failed");
+        }
+    }
+
+    private TGContext resolveTgContext(ActionContext context) {
         var book = context.getBook();
-        var chatType = of(context.getReleaseTarget().getMetadata().getOrDefault(TELEGRAM_CHAT_TYPE, "none").toString());
+        var chatType = of(context.getReleaseTarget().getMetadata()
+                .getOrDefault(TELEGRAM_CHAT_TYPE, "none").toString());
         log.info("Starting chapter release for book: {}, mode={}", book.getRuName(), chatType);
 
         var status = context.isLastRelease() ? "Завершена ветка перевода" : "Перевод продолжается";
         var release = context.getRelease();
+        //TODO rewrite to more complex way to resolve parent's message id(due, only text version have book's publication)
         var tgBookId = (Integer) context.getOr(TELEGRAM_BOOK_ID, () ->
                 repository.findSingleMetadata(release.getReleaseTargetId(), TELEGRAM_BOOK_ID));
 
@@ -115,75 +252,34 @@ public class TelegramHandler implements ActionHandler {
         var chaptersRequest = release.toPageRequest();
         var remoteBookId = context.getRemoteBookId();
 
-        log.debug("Fetching ready chapters for: bookID={}, mode={}", remoteBookId, chatType);
-
-        var chapterList = bookRestClient.getReadyChaptersCached(remoteBookId, chaptersRequest.first(), chaptersRequest.second());
-        var markdowns = chapterList.stream()
-                .map(markdownConverter::toMarkdown)
-                .map(s -> s.getBytes(StandardCharsets.UTF_8))
-                .toList();
-        var image = imageRepository.getById(book.getImageId());
-        var partIndex = context.getReleasePosition() + 1;
-
-        var number = partIndex + "";
-
-        log.debug("Generating cover image for book: {}, mode={}", book.getRuName(), chatType);
-
-        var coverInfo = new CoverInfo(number, book.getRuName(), "M T.\nNOVELS", telegramProperties.getChannelLink(), "@mt_novel", "Subscribe");
-        var coverImage = coverService.generateBookCover(image, coverInfo);
-        var fileName = NameUtil.toFileSnakeCase(book.getEnName()) + "_%s.epub".formatted(partIndex);
-        var chatId = telegramProperties.getChatId(chatType);
-
-        log.debug("Converting to EPUB for book: {}, mode={}", book.getRuName(), chatType);
-        var epubBytes = pandocRestClient.convertToEpubCached(createNew(b -> b
-                .startIndex(chaptersRequest.first())
-                .markdownFiles(markdowns)
-                .coverImage(coverImage.getData())
-                .coverContentType(image.getContentType())
-                .title(book.getRuName())
-                .subtitle("Часть %s".formatted(partIndex))
-                .author(book.getAuthor())
-                .publisher(chatId)
-                .publisherInfo("""
-                        Мы — скромная, но талантливая команда энтузиастов-переводчиков, собравшихся не ради славы, денег или мирового господства (пока), а ради одной простой, почти наивной идеи: делиться историями и знаниями с каждым, кто готов слушать.
-                                                
-                        Нам не нужны награды и признание — мы просто верим, что хорошие книги не должны пылиться на полках, прятаться за paywall'ами или исчезать в темноте авторских прав. Их место — в головах и сердцах живых людей, а не в архивах и сейфах.
-                                                
-                        Так что да, мы здесь, чтобы книги жили. Иногда с опечатками. Иногда с примечаниями в духе "переводчик плакал". Но — жили.
-                        """)
-                //.edition("")
-                .rights("Без авторских прав. Используйте свободно.")
-                //.legalRights("")
-                //.disclaimer("")
-                .description(book.getDescription())
-                .keywords(String.join(", ", book.getGenre()))
-                .date(startOfYear(book.getYear()))
-                .pubdate(formatDate(context.getReleaseTarget().getCreatedAt().toLocalDate()))
-                //.website("")
-                .socialLinks(List.of(
-                        telegramProperties.getChannelLink()
-                ))
-                .outputFilename(fileName)
-        ));
-
-        if (Objects.nonNull(epubBytes) && epubBytes.length > 0) {
-            log.info("Publishing new chapter for book: {}, mode={}", book.getRuName(), chatType);
-            var response = telegramService.publishNewChapter(chatId, book.getRuName(),
-                    tgBookId,
-                    chapters,
-                    status,
-                    fileName,
-                    epubBytes);
-            context.set(TELEGRAM_CHAPTER_ID, response.messageId());
-
-            context.getRelease().addMetadata(TELEGRAM_CHAPTER_ID, response.messageId());
-        } else {
-            log.error("Epub generation failed for book: {}, mode={}", book.getRuName(), chatType);
-            throw new AppException("Epub generation is failed");
-        }
+        return TGContext.builder()
+                .book(book)
+                .chatType(chatType)
+                .status(status)
+                .tgBookId(tgBookId)
+                .chapters(chapters)
+                .chaptersRequest(chaptersRequest)
+                .remoteBookId(remoteBookId)
+                .build();
     }
 
     /* ============= */
+
+    @Data
+    @AllArgsConstructor
+    @Builder(toBuilder = true)
+    @NoArgsConstructor(access = AccessLevel.PUBLIC)
+    private static class TGContext {
+        
+        private Book book;
+        private ChatType chatType;
+        private String status;
+        private Integer tgBookId;
+        private String chapters;
+        private Pair<Integer, Integer> chaptersRequest;
+        private String remoteBookId;
+
+    }
 
     /**
      * A nested class containing constants used throughout the TelegramHandler class.

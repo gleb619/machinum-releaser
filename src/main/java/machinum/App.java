@@ -19,20 +19,13 @@ import io.swagger.v3.oas.annotations.OpenAPIDefinition;
 import io.swagger.v3.oas.annotations.info.Info;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
-import machinum.book.BookController_;
-import machinum.cache.CacheService;
 import machinum.exception.AppException;
-import machinum.image.ImageController_;
-import machinum.image.ImageRepository;
-import machinum.image.cover.CoverService;
-import machinum.scheduler.Scheduler;
 import org.slf4j.Logger;
 
 import java.nio.file.Paths;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
-import static machinum.Config.changeLogLevel;
+import static machinum.Config.Misc.changeLogLevel;
 import static machinum.assets.AssetsResourceController.assetsController;
 import static machinum.book.BookController.bookController;
 import static machinum.image.ImageController.imageController;

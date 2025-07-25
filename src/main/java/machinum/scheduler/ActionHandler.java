@@ -1,7 +1,5 @@
 package machinum.scheduler;
 
-import jakarta.validation.constraints.NotEmpty;
-import jakarta.validation.constraints.NotNull;
 import lombok.Builder;
 import lombok.RequiredArgsConstructor;
 import lombok.Singular;
@@ -41,7 +39,7 @@ public interface ActionHandler {
 
         public HandlerResult handle(Release release) {
             log.debug("Got request to execute action for release: {}", release);
-            var targetName = release.getReleaseTargetName();
+            var actionType = ActionType.of(release.getReleaseActionType());
             var result = repository.findReleasePosition(release.getId());
             var releaseTarget = targetRepository.getById(release.getReleaseTargetId());
             var book = bookRepository.getById(releaseTarget.getBookId());
@@ -50,6 +48,7 @@ public interface ActionHandler {
             var context = ActionContext.builder()
                     .release(release)
                     .releaseTarget(releaseTarget)
+                    .actionType(actionType)
                     .book(book)
                     .isFirstRelease(result.getItemPosition() == 0)
                     .isLastRelease(result.getItemPosition() == 2)
@@ -58,10 +57,10 @@ public interface ActionHandler {
                     .build();
 
             //TODO return new copy of release in HandlerResult
-            var output = switch (targetName) {
-                case "Telegram" -> tgHandler.handle(context);
-                case "Website" -> websiteHandler.handle(context);
-                default -> throw new IllegalArgumentException("Unknown type: " + targetName);
+            var output = switch (actionType) {
+                case TELEGRAM, TELEGRAM_AUDIO -> tgHandler.handle(context);
+                case WEBSITE -> websiteHandler.handle(context);
+                default -> throw new IllegalArgumentException("Unknown type: " + actionType);
             };
 
             //TODO should we remove it, due Scheduler already have update call?
@@ -120,6 +119,7 @@ public interface ActionHandler {
         Map<String, Object> data = new HashMap<>();
         Release release;
         ReleaseTarget releaseTarget;
+        ActionType actionType;
         Book book;
         boolean isFirstRelease;
         boolean isLastRelease;
@@ -152,6 +152,31 @@ public interface ActionHandler {
         }
 
     }
+
+    enum ActionType {
+
+        TELEGRAM,
+
+        TELEGRAM_AUDIO,
+
+        WEBSITE,
+
+        OTHER
+        ;
+
+        public static ActionType of(String name) {
+            var localName = name.toUpperCase();
+            for (var actionType : values()) {
+                if(localName.equals(actionType.name())) {
+                    return actionType;
+                }
+            }
+
+            return OTHER;
+        }
+
+    }
+
 
 }
 
