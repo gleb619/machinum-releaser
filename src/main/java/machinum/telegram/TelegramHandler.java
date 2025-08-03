@@ -2,7 +2,7 @@ package machinum.telegram;
 
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
-import machinum.audio.TTSRestClient;
+import machinum.audio.CoverArt;
 import machinum.audio.TTSRestClient.Metadata;
 import machinum.book.Book;
 import machinum.book.BookRestClient;
@@ -15,6 +15,7 @@ import machinum.pandoc.PandocRestClient;
 import machinum.pandoc.PandocRestClient.PandocRequest;
 import machinum.release.ReleaseRepository;
 import machinum.scheduler.ActionHandler;
+import machinum.telegram.TelegramAudio.FileMetadata;
 import machinum.telegram.TelegramProperties.ChatType;
 import machinum.audio.TextXmlReader.TextInfo;
 import machinum.util.Pair;
@@ -22,19 +23,15 @@ import machinum.util.Pair;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.List;
-import java.util.Locale;
-import java.util.Objects;
+import java.util.*;
 import java.util.regex.Pattern;
 
-import static machinum.audio.TTSRestClient.Metadata.*;
-import static machinum.audio.TTSRestClient.Metadata.createNew;
-import static machinum.pandoc.PandocRestClient.PandocRequest.createNew;
 import static machinum.release.Release.ReleaseConstants.PAGES_PARAM;
 import static machinum.telegram.TelegramHandler.TelegramConstants.TELEGRAM_BOOK_ID;
 import static machinum.telegram.TelegramHandler.TelegramConstants.TELEGRAM_CHAPTER_ID;
 import static machinum.telegram.TelegramProperties.ChatType.TEST;
 import static machinum.telegram.TelegramProperties.ChatType.of;
+import static machinum.util.ZipUtil.readZipFile;
 
 /**
  * Instance is used for interacting with the telegram API for scheduled releases.
@@ -57,6 +54,7 @@ public class TelegramHandler implements ActionHandler {
     private final CoverService coverService;
     private final TelegramAudio telegramAudio;
     private final TextInfo textInfo;
+    private final CoverArt coverArt;
 
     /**
      * Handles the action context based on whether it's the first or subsequent release.
@@ -200,15 +198,14 @@ public class TelegramHandler implements ActionHandler {
         var from = tgContext.getChaptersRequest().first();
         var fileName = NameUtil.toFileSnakeCase(tgContext.getBook().getEnName()) + "_%s.mp3".formatted(partIndex);
         var to = tgContext.getChaptersRequest().second();
-        var audioBytes = bookRestClient.getAudioCached(tgContext.getRemoteBookId(), from, to, coverImage.getData());
+        var zipBytes = bookRestClient.getAudioCached(tgContext.getRemoteBookId(), from, to, coverImage.getData());
+        var audioFiles = processZipFile(zipBytes);
 
-        var chatId = telegramProperties.getChatId(TEST);
-        //TODO uncomment
-        //var chatId = telegramProperties.getChatId(tgContext.getChatType());
-        var targetAudio = telegramAudio.putTogether(fileName, Metadata.createNew(b -> b
+        var chatId = telegramProperties.getChatId(tgContext.getChatType());
+        var metadata = Metadata.createNew(b -> b
                 .title(tgContext.getBook().getRuName())
                 //TODO add voice artist name here
-                .artist(String.join(",", tgContext.getBook().getAuthor()))
+                .artist(String.join(",", telegramProperties.getChannelName()))
                 .album(tgContext.getBook().getEnName())
                 .year(String.valueOf(LocalDate.now().getYear()))
                 .genre("Аудиокнига")
@@ -217,16 +214,23 @@ public class TelegramHandler implements ActionHandler {
                 .publisher(chatId)
                 .copyright(textInfo.getEpub().getRights())
                 .comments(textInfo.getTts().getDisclaimer())
-        ), audioBytes);
+        );
+        var firstAudioFile = telegramAudio.putTogether(fileName, metadata, Boolean.TRUE, audioFiles.first(), coverImage.getData());
+        var restAudioFiles = telegramAudio.enhance(fileName, metadata, audioFiles.rest(), coverImage.getData());
+        var filesToRelease = new ArrayList<FileMetadata>();
+        filesToRelease.add(firstAudioFile);
+        filesToRelease.addAll(restAudioFiles);
 
-        if (Objects.nonNull(targetAudio) && targetAudio.length > 0) {
+
+        if (Objects.nonNull(firstAudioFile)) {
             log.info("Publishing new chapter for book: {}, mode={}", tgContext.getBook().getRuName(), tgContext.getChatType());
-            var response = telegramService.publishNewAudio(chatId, tgContext.getBook().getRuName(),
+
+        var response = telegramService.publishNewAudio(chatId, tgContext.getBook().getRuName(),
                     tgContext.getTgBookId(),
                     tgContext.getChapters(),
                     tgContext.getStatus(),
-                    fileName,
-                    targetAudio);
+                    filesToRelease,
+                    coverArt.content());
             context.set(TELEGRAM_CHAPTER_ID, response.messageId());
 
             context.getRelease().addMetadata(TELEGRAM_CHAPTER_ID, response.messageId());
@@ -262,6 +266,26 @@ public class TelegramHandler implements ActionHandler {
                 .remoteBookId(remoteBookId)
                 .build();
     }
+
+    public AudioFiles processZipFile(byte[] zipData) {
+        Map<String, byte[]> files = readZipFile(zipData);
+        List<Map.Entry<String, byte[]>> sortedEntries = new ArrayList<>(files.entrySet());
+        sortedEntries.sort(Map.Entry.comparingByKey());
+
+        byte[] first = null;
+        List<byte[]> rest = new ArrayList<>();
+        for (int i = 0; i < sortedEntries.size(); i++) {
+            if (i == 0) {
+                first = sortedEntries.get(i).getValue();
+            } else {
+                rest.add(sortedEntries.get(i).getValue());
+            }
+        }
+
+        return new AudioFiles(first, rest);
+    }
+
+    public record AudioFiles(byte[] first, List<byte[]> rest) {}
 
     /* ============= */
 

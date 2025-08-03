@@ -132,8 +132,8 @@ public class TextXmlReader {
          */
         public Epub fromEnv() {
             return toBuilder()
-                    .publisherInfo(resolveEnv("APP_EPUB_PUBLISHER_INFO", publisherInfo))
-                    .rights(resolveEnv("APP_EPUB_RIGHTS", rights))
+                    .publisherInfo(resolveEnv("EPUB_PUBLISHER_INFO", publisherInfo))
+                    .rights(resolveEnv("EPUB_RIGHTS", rights))
                     .build();
         }
 
@@ -158,8 +158,8 @@ public class TextXmlReader {
 
         public Tts fromEnv() {
             return toBuilder()
-                    .advertising(resolveEnv("APP_TTS_ADVERTISING", advertising))
-                    .disclaimer(resolveEnv("APP_TTS_DISCLAIMER", disclaimer))
+                    .advertising(resolveEnv("TTS_ADVERTISING", advertising))
+                    .disclaimer(resolveEnv("TTS_DISCLAIMER", disclaimer))
                     .build();
         }
 

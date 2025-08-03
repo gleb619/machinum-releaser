@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jooby.StatusCode;
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
+import machinum.util.CheckedBiConsumer;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -12,10 +13,13 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
+import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
+
+import static machinum.util.CheckedBiConsumer.checked;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -26,6 +30,60 @@ public class TTSRestClient {
     private final HttpClient httpClient;
 
     private final ObjectMapper objectMapper;
+
+    public byte[] enhanceFiles(byte[] coverArt, Map<String, byte[]> files, String preset, Metadata metadata) throws Exception {
+        String boundary = "----WebKitFormBoundary" + System.currentTimeMillis();
+        ByteArrayOutputStream body = new ByteArrayOutputStream();
+
+        addFormField(body, boundary, "preset", preset);
+
+        if (!Metadata.isEmpty(metadata)) {
+            String metadataJson = objectMapper.writeValueAsString(metadata);
+            addFormField(body, boundary, "metadata", metadataJson);
+        }
+
+        addFormField(body, boundary, "return_metadata", Boolean.TRUE.toString());
+
+        if(coverArt.length > 0) {
+            addFilePart(body, boundary, "cover_art", "cover.jpg", coverArt, "image/jpeg");
+        }
+
+        files.forEach(checked((filename, bytes) ->
+                addFilePart(body, boundary, "files", filename, bytes, "audio/mpeg")));
+
+        // Add the final boundary to signify the end of the request
+        body.write(("--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8));
+
+        var uri = URI.create(ttsServiceUrl + "/api/enhance");
+        log.debug(">> POST {}", uri);
+
+        var request = HttpRequest.newBuilder()
+                .uri(uri)
+                .header("Content-Type", "multipart/form-data; boundary=" + boundary)
+                .POST(HttpRequest.BodyPublishers.ofByteArray(body.toByteArray()))
+                .build();
+
+        HttpResponse<byte[]> response = null;
+        try {
+            response = httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray());
+        } finally {
+            if(Objects.nonNull(response)) {
+                log.debug("<< POST {} {}", uri, response.statusCode());
+            } else {
+                log.debug("<< POST {} -1", uri);
+            }
+        }
+
+        // Check for errors
+        if (response.statusCode() != StatusCode.OK_CODE) {
+            String errorBody = new String(response.body(), StandardCharsets.UTF_8);
+            throw new IOException("Enhance service failed with status %s: %s".formatted(response.statusCode(), errorBody));
+        }
+
+        log.debug("Enhance audio for {} files", files.size());
+
+        return response.body();
+    }
 
     public byte[] generate(@NonNull TTSRequest request) throws IOException, InterruptedException {
         log.debug("Generating audio from given text: {}", request);
@@ -63,17 +121,18 @@ public class TTSRestClient {
         // Add the final boundary to signify the end of the request
         body.write(("--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8));
 
-        URI uri = URI.create(ttsServiceUrl + "/api/tts");
+        var uri = URI.create(ttsServiceUrl + "/api/tts");
         log.debug(">> POST {}", uri);
 
-        HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
+        var httpRequest = HttpRequest.newBuilder()
                 .uri(uri)
                 .header("Content-Type", "multipart/form-data; boundary=" + boundary)
-                .POST(HttpRequest.BodyPublishers.ofByteArray(body.toByteArray()));
+                .POST(HttpRequest.BodyPublishers.ofByteArray(body.toByteArray()))
+                .build();
 
         HttpResponse<byte[]> response = null;
         try {
-            response = httpClient.send(requestBuilder.build(), HttpResponse.BodyHandlers.ofByteArray());
+            response = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofByteArray());
         } finally {
             if(Objects.nonNull(response)) {
                 log.debug("<< POST {} {}", uri, response.statusCode());
@@ -94,7 +153,7 @@ public class TTSRestClient {
     }
 
     @SneakyThrows
-    public byte[] joinMp3Files(byte[] zipContent, String outputName, boolean enhance, byte[] coverArt,
+    public byte[] joinMp3Files(byte[] zipContent, String outputName, boolean enhance, boolean returnZip, byte[] coverArt,
                                Integer metadataFileIndex, Metadata metadata) {
         log.debug("Sending MP3 join request to TTS service");
 
@@ -106,9 +165,13 @@ public class TTSRestClient {
         if(enhance) {
             addFormField(body, boundary, "enhance_preset", "podcast");
         }
-        addFormField(body, boundary, "max_file_size", "100MB");
+        addFormField(body, boundary, "max_file_size", "200mb");
         addFormField(body, boundary, "add_silent_gaps", "true");
         addFormField(body, boundary, "metadata_file_index", String.valueOf(metadataFileIndex));
+
+        if (returnZip) {
+            addFormField(body, boundary, "return_zip", String.valueOf(returnZip));
+        }
 
         if (!Metadata.isEmpty(metadata)) {
             String metadataJson = objectMapper.writeValueAsString(metadata);
@@ -125,10 +188,10 @@ public class TTSRestClient {
         // Add the final boundary to signify the end of the request
         body.write(("--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8));
 
-        URI uri = URI.create(ttsServiceUrl + "/api/join");
+        var uri = URI.create(ttsServiceUrl + "/api/join");
         log.debug(">> POST {}", uri);
 
-        HttpRequest request = HttpRequest.newBuilder()
+        var request = HttpRequest.newBuilder()
                 .uri(uri)
                 .header("Content-Type", "multipart/form-data; boundary=" + boundary)
                 .POST(HttpRequest.BodyPublishers.ofByteArray(body.toByteArray()))
@@ -183,7 +246,7 @@ public class TTSRestClient {
      */
     private void addFilePart(ByteArrayOutputStream body, String boundary, String fieldName, String fileName, byte[] fileBytes, String contentType) throws IOException {
         body.write(("--" + boundary + "\r\n").getBytes(StandardCharsets.UTF_8));
-        body.write(("Content-Disposition: form-data; name=\"" + fieldName + "\"; filename=\"" + fileName + "\"\r\n").getBytes(StandardCharsets.UTF_8));
+        body.write(("Content-Disposition: form-data; name=\"%s\"; filename=\"%s\"\r\n".formatted(fieldName, fileName)).getBytes(StandardCharsets.UTF_8));
         body.write(("Content-Type: " + contentType + "\r\n").getBytes(StandardCharsets.UTF_8));
         body.write("\r\n".getBytes(StandardCharsets.UTF_8));
         body.write(fileBytes);

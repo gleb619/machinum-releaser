@@ -7,6 +7,8 @@ import lombok.extern.slf4j.Slf4j;
 import machinum.book.Book;
 import machinum.exception.AppException;
 import machinum.image.Image;
+import machinum.telegram.TelegramAudio.FileMetadata;
+import machinum.telegram.TelegramClient.AudioRecord;
 import machinum.telegram.TelegramClient.Response;
 
 import java.io.File;
@@ -14,6 +16,8 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 import static machinum.telegram.TelegramClient.MPEG_CONTENT_TYPE;
 import static machinum.telegram.TelegramClient.TELEGRAM_LIMIT;
@@ -157,20 +161,20 @@ public class TelegramService {
 
     @SneakyThrows
     public Response publishNewAudio(String chatId, String name, Integer synopsisMessageId,
-                                      String chapters, String status, String fileName, byte[] audio) {
+                                    String chapters, String status, List<FileMetadata> audioFiles,
+                                    byte[] thumbnail) {
         log.info("Prepare to start a telegram session: {}", LocalDateTime.now());
 
         String message = dsl()
-                .customEmoji("\ud83c\udfa7")
-                .bold(" Новый выпуск!")
+                .customEmoji("\uD83C\uDFA7")
+                .bold(" Обновление!")
                 .newLine()
-                .text("Мы рады сообщить, что вышла. ")
-                .bold("новая аудиоверсия")
-                .text("глав — теперь вы можете не только читать, но и ")
-                .bold("слушать")
+                .customEmoji("\uD83D\uDE80")
+                .text(" Мы рады сообщить, что вышла ").bold("новая аудиоверсия")
+                .text(" глав — теперь вы можете не только читать, но и ").bold("слушать")
                 .text(" любимую историю! Погрузитесь в атмосферу романа в любом месте и в любое время.")
                 .newLine()
-                .customEmoji("\ud83d\udccc")
+                .customEmoji("\uD83D\uDCCC")
                 .bold(" Подробности:").newLine()
                 .list(dsl -> dsl.listOf(
                         dsl.bold("Канал: ").mention(telegramProperties.getChannelName()).dump(),
@@ -190,7 +194,15 @@ public class TelegramService {
 
         log.info("Created message: chatId={}, message={}", chatId, message);
 
-        return client.sendFileWithMessage(chatId, message, MPEG_CONTENT_TYPE, fileName, audio);
+        var chaps = chapters.split("-");
+        var counter = new AtomicInteger(Integer.parseInt(chaps[0]));
+
+        var audioRecords = audioFiles.stream()
+                .map(metadata -> new AudioRecord(metadata.getFilename(), "Chapter: %s".formatted(counter.getAndIncrement()), metadata.getMp3Data(), (int) metadata.getDurationSeconds()))
+                .collect(Collectors.toList());
+
+        return client.sendAudioFilesWithMessage(chatId, message, MPEG_CONTENT_TYPE,
+                telegramProperties.getChannelName(), audioRecords, thumbnail);
     }
 
     @SneakyThrows

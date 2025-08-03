@@ -1,8 +1,10 @@
 package machinum.telegram;
 
-import lombok.RequiredArgsConstructor;
-import lombok.SneakyThrows;
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.*;
 import lombok.extern.slf4j.Slf4j;
+import machinum.audio.CoverArt;
 import machinum.audio.TTSRestClient;
 import machinum.audio.TTSRestClient.Metadata;
 import machinum.audio.TextXmlReader.TextInfo;
@@ -10,19 +12,26 @@ import machinum.exception.AppException;
 import machinum.minio.MinioService;
 import machinum.util.Util;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.zip.CRC32;
 import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 
 import static machinum.util.CheckedRunnable.checked;
+import static machinum.util.ZipUtil.createZipFile;
+import static machinum.util.ZipUtil.readZipFile;
 
 /**
  * This class is responsible for handling audio operations related to Telegram,
@@ -48,6 +57,8 @@ public class TelegramAudio {
      */
     private final Initializer initializer;
 
+    private final ObjectMapper objectMapper;
+
     /**
      * Key used to fetch the advertising audio file from MinIO.
      */
@@ -58,74 +69,160 @@ public class TelegramAudio {
      */
     private final String disclaimerKey;
 
-    private final String coverUrl;
-
-    private final byte[] defaultCover;
+    private final CoverArt coverArt;
 
     /**
      * Combines advertising, disclaimer, and main audio content into a single MP3 file.
      *
-     * @param fileName  The name of the output file.
-     * @param metadata  Metadata associated with the audio files.
-     * @param audioBytes Byte array containing the main audio content.
+     * @param fileName      The name of the output file.
+     * @param metadata      Metadata associated with the audio files.
+     * @param returnZip
+     * @param audioBytes    Byte array containing the main audio content.
+     * @param coverArtBytes Byte array containing the covert art content.
      * @return A byte array representing the combined MP3 file.
      * @throws IOException If an I/O error occurs during zip file creation or joining MP3 files.
      */
     @SneakyThrows
-    public byte[] putTogether(String fileName, Metadata metadata, byte[] audioBytes) {
+    public FileMetadata putTogether(String fileName, Metadata metadata, boolean returnZip,
+                                    byte[] audioBytes, byte[] coverArtBytes) {
+        log.info("Prepare to create release mp3 file for: {}, size={}mb", fileName, audioBytes.length / 1024 / 1024);
+
         initializer.waitForAudioGeneration();
 
         var advertising = minioService.getByKey(advertisingKey);
+        log.debug("Advertising audio retrieved from MinIO: key={}, size={}mb",
+                advertisingKey, advertising.data().length / 1024 / 1024);
+
         var disclaimer = minioService.getByKey(disclaimerKey);
+        log.debug("Disclaimer audio retrieved from MinIO: key={}, size={}mb",
+                disclaimerKey, disclaimer.data().length / 1024 / 1024);
 
         var zipFile = createZipFile(Map.of(
                 "aaaa.mp3", advertising.data(),
                 "bbbb.mp3", disclaimer.data(),
                 "cccc.mp3", audioBytes
         ));
+        log.debug("ZIP file created containing advertising, disclaimer, and main audio: size={}mb", zipFile.length / 1024 / 1024);
 
-        var coverArt = resolveCoverArt();
-
-        return ttsClient.joinMp3Files(zipFile, "temp_" + fileName, Boolean.FALSE, coverArt, 2,
-                metadata);
-    }
-
-    /**
-     * Creates a zip file containing multiple MP3 files.
-     *
-     * @param files A map where the key is the name of the file and the value is the byte array content.
-     * @return A byte array representing the created zip file.
-     * @throws IOException If an I/O error occurs during zip file creation.
-     */
-    private byte[] createZipFile(Map<String, byte[]> files) throws IOException {
-        var baos = new ByteArrayOutputStream();
-        try (var zos = new ZipOutputStream(baos)) {
-            for (var entry : files.entrySet()) {
-                var zipEntry = new ZipEntry(entry.getKey());
-                zos.putNextEntry(zipEntry);
-                zos.write(entry.getValue());
-                zos.closeEntry();
-            }
+        var targetCoverArt = coverArtBytes.length == 0 ? coverArt.content() : coverArtBytes;
+        if (coverArtBytes.length == 0) {
+            log.info("No cover art provided. Using default cover art.");
+        } else {
+            log.debug("Using provided cover art: size={}mb", coverArtBytes.length / 1024 / 1024);
         }
 
-        return baos.toByteArray();
+        byte[] result = ttsClient.joinMp3Files(zipFile, fileName.replace(".mp3", "_0001.mp3"), Boolean.FALSE, returnZip,
+                targetCoverArt, 2, metadata);
+        log.info("Successfully joined MP3 files, size={}mb", result.length / 1024 / 1024);
+
+        if(returnZip) {
+            return processZip(result, metadata);
+        }
+
+        return FileMetadata.builder()
+                .mp3Data(result)
+                .durationSeconds(0)
+                .build();
     }
 
     @SneakyThrows
-    private byte[] resolveCoverArt() {
-        if (!"none".equalsIgnoreCase(coverUrl)) {
-            if(coverUrl.startsWith("http")) {
-                return minioService.downloadContent(coverUrl);
-            } else {
-                var parts = coverUrl.split("/");
-                var url = minioService.getPreSignedUrl(parts[0], parts[1]);
-                return minioService.downloadContent(url);
-            }
+    public List<FileMetadata> enhance(String fileNameTemplate, Metadata metadata, List<byte[]> files, byte[] coverArtBytes) {
+        var targetCoverArt = coverArtBytes.length == 0 ? coverArt.content() : coverArtBytes;
+        if (coverArtBytes.length == 0) {
+            log.info("No cover art provided. Using default cover art.");
         } else {
-            return defaultCover;
+            log.debug("Using provided cover art: size={}mb", coverArtBytes.length / 1024 / 1024);
         }
+
+        var localTemplate = fileNameTemplate.replaceAll(".mp3$", "");
+
+        record TempObj(int index, byte[] bytes){}
+
+        var targetFiles = IntStream.range(0, files.size())
+                .filter(i -> i <= files.size())
+                //e.g. start from _0002
+                .mapToObj(i -> new TempObj(i + 2, files.get(i)))
+                .collect(Collectors.toMap(o -> "%s_%04d.mp3".formatted(localTemplate, o.index()),
+                        TempObj::bytes, (f, s) -> f, LinkedHashMap::new));
+
+        var zipBytes = ttsClient.enhanceFiles(targetCoverArt, targetFiles, "podcast", metadata);
+        var enhancedFiles = readZipFile(zipBytes);
+
+        return enhancedFiles.entrySet().stream()
+                .filter(entry -> entry.getKey().endsWith(".mp3"))
+                .map(mp3Entry -> {
+                    String jsonKey = mp3Entry.getKey().replace(".mp3", "_metadata.json");
+                    byte[] jsonData = enhancedFiles.get(jsonKey);
+                    try {
+                        FileMetadata fileMetadata = objectMapper.readValue(jsonData, FileMetadata.class);
+                        fileMetadata.setMp3Data(mp3Entry.getValue());
+                        fileMetadata.setMetadata(metadata);
+                        return fileMetadata;
+                    } catch (IOException e) {
+                        log.error("Error reading metadata for file: {}", mp3Entry.getKey(), e);
+                        throw new AppException("Failed to read metadata", e);
+                    }
+                })
+                .collect(Collectors.toList());
     }
 
+    private FileMetadata processZip(byte[] data, Metadata metadata) throws IOException {
+        byte[] mp3Data = null;
+        FileMetadata fileMetadata = null;
+
+        try (var zis = new ZipInputStream(new ByteArrayInputStream(data))) {
+            ZipEntry entry;
+            while ((entry = zis.getNextEntry()) != null) {
+                var name = entry.getName();
+                log.debug("Found {} file in zip", name);
+
+                if (name.endsWith(".mp3")) {
+                    mp3Data = zis.readAllBytes();
+                } else if (name.endsWith(".json")) {
+                    byte[] jsonData = zis.readAllBytes();
+                    log.debug("Extracted JSON metadata from zip entry: {}", new String(jsonData, StandardCharsets.UTF_8));
+                    fileMetadata = objectMapper.readValue(jsonData, FileMetadata.class);
+                } else {
+                    log.warn("Found different file: {}", name);
+                }
+            }
+        }
+
+        if (mp3Data == null || mp3Data.length == 0) {
+            throw new AppException("MP3 file was not found in result zip");
+        }
+
+        if (fileMetadata == null) {
+            throw new AppException("JSON metadata file was not found in result zip");
+        }
+
+        fileMetadata.setMp3Data(mp3Data);
+        fileMetadata.setMetadata(metadata);
+
+        return fileMetadata;
+    }
+
+    @Data
+    @AllArgsConstructor
+    @Builder(toBuilder = true)
+    @ToString(onlyExplicitlyIncluded = true)
+    @NoArgsConstructor(access = AccessLevel.PUBLIC)
+    public static class FileMetadata {
+
+        @ToString.Include
+        private String filename;
+        private long fileSizeBytes;
+        private double durationSeconds;
+        private int bitrateBps;
+        private int sampleRateHz;
+        private int channels;
+        private String format;
+        @JsonAlias("id3Tags")
+        @ToString.Include
+        private Metadata metadata;
+        private byte[] mp3Data;
+
+    }
 
     @RequiredArgsConstructor
     public static class Initializer {
@@ -242,7 +339,7 @@ public class TelegramAudio {
             return ttsClient.generate(TTSRestClient.TTSRequest.builder()
                     .text(text)
                     .outputFile(fileName)
-                    .enhance(false)
+                    .enhance(true)
                     .returnZip(false)
                     .build());
         }

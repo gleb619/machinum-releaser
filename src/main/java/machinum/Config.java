@@ -3,9 +3,7 @@ package machinum;
 import ch.qos.logback.classic.Level;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.*;
 import io.avaje.validation.Validator;
 import io.jooby.Extension;
 import io.jooby.Jooby;
@@ -14,6 +12,7 @@ import io.jooby.ServiceRegistry;
 import io.minio.MinioClient;
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
+import machinum.audio.CoverArt;
 import machinum.audio.TTSRestClient;
 import machinum.audio.TextXmlReader;
 import machinum.audio.TextXmlReader.TextInfo;
@@ -135,12 +134,14 @@ public class Config implements Extension {
         registry.putIfAbsent(MinioService.class, minioService);
         registry.putIfAbsent(Initializer.class, initializer);
 
+        var coverArt = coverArt(minioService, config);
+
         var tgProperties = telegramProperties(config);
-        var telegramAudio = telegramAudio(minioService, ttsRestClient, initializer, config);
+        var telegramAudio = telegramAudio(minioService, ttsRestClient, initializer, coverArt, config);
         var tgClient = new TelegramClient(tgProperties, objectMapperTg);
         var tgService = new TelegramService(tgProperties, tgClient);
         var tgHandler = new TelegramHandler(tgService, tgProperties, releaseRepository, imageRepository,
-                restClient, markdownConverter, pandocRestClient, coverService, telegramAudio, textInfo);
+                restClient, markdownConverter, pandocRestClient, coverService, telegramAudio, textInfo, coverArt);
         registry.putIfAbsent(TelegramClient.class, tgClient);
         registry.putIfAbsent(TelegramService.class, tgService);
 
@@ -260,17 +261,28 @@ public class Config implements Extension {
 
     @SneakyThrows
     private TelegramAudio telegramAudio(MinioService minioService, TTSRestClient ttsRestClient,
-                                        Initializer initializer, com.typesafe.config.Config config) {
+                                        Initializer initializer, CoverArt coverArt, com.typesafe.config.Config config) {
         var advertisingKey = config.getString(TTS_ADVERTISING_KEY);
         var disclaimerKey = config.getString(TTS_DISCLAIMER_KEY);
+
+        return new TelegramAudio(minioService, ttsRestClient, initializer, new ObjectMapper()
+                .enable(MapperFeature.ACCEPT_CASE_INSENSITIVE_PROPERTIES)
+                .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                .setPropertyNamingStrategy(PropertyNamingStrategy.SNAKE_CASE), advertisingKey, disclaimerKey,
+                coverArt);
+    }
+
+    @SneakyThrows
+    private CoverArt coverArt(MinioService minioService, com.typesafe.config.Config config) {
         var coverUrl = config.getString(TTS_COVER_URL);
 
         @Cleanup
         var inputStream = getClass().getClassLoader().getResourceAsStream("web/android-chrome-512x512.png");
         var defaultCover = IOUtils.toByteArray(Objects.requireNonNull(inputStream, "Default cover wa not found"));
 
-        return new TelegramAudio(minioService, ttsRestClient, initializer, advertisingKey, disclaimerKey,
-                coverUrl, defaultCover);
+        return CoverArt.builder()
+                .content(CoverArt.resolveCoverArt(minioService, coverUrl, defaultCover))
+                .build();
     }
 
     @NoArgsConstructor(access = AccessLevel.PRIVATE)

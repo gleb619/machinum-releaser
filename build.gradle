@@ -99,7 +99,7 @@ dependencies {
     testAnnotationProcessor "org.projectlombok:lombok:$lombokVersion"
 
     // targets
-    implementation 'com.github.pengrad:java-telegram-bot-api:8.1.0'
+    implementation 'com.github.pengrad:java-telegram-bot-api:8.3.0'
     implementation 'net.fellbaum:jemoji:1.6.0'
     implementation 'net.coobird:thumbnailator:0.4.20'
 //    implementation 'io.documentnode:epub4j-core:4.2.2'

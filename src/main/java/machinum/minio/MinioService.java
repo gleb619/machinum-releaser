@@ -219,7 +219,19 @@ public class MinioService {
             String etag,
             Map<String, String> metadata) {}
 
-    public String getPreSignedUrl(String objectKey, String bucketName) throws InvalidKeyException, IOException, NoSuchAlgorithmException, MinioException {
+    /**
+     * Generates a pre-signed URL for an object in a specified MinIO bucket.
+     * The URL is valid for 1 hour and allows GET access to the object.
+     *
+     * @param bucketName The name of the bucket where the object is located.
+     * @param objectKey  The key (path) of the object for which to generate the URL.
+     * @return A string representing the pre-signed URL.
+     * @throws InvalidKeyException      If the access key is invalid.
+     * @throws IOException              If an I/O error occurs during the operation.
+     * @throws NoSuchAlgorithmException If the specified algorithm is not available.
+     * @throws MinioException           If a MinIO-specific error occurs during URL generation.
+     */
+    public String getPreSignedUrl(String bucketName, String objectKey) throws InvalidKeyException, IOException, NoSuchAlgorithmException, MinioException {
         try {
             return minioClient.getPresignedObjectUrl(
                     GetPresignedObjectUrlArgs.builder()
@@ -234,6 +246,14 @@ public class MinioService {
         }
     }
 
+    /**
+     * Downloads content from a given pre-signed URL.
+     * This method uses HttpClient to perform a GET request to the provided URL and returns the content as a byte array.
+     *
+     * @param preSignedUrl The pre-signed URL from which to download the content.
+     * @return A byte array containing the downloaded content.
+     * @throws IOException If an I/O error occurs during the download, or if the HTTP response status code is not OK (200).
+     */
     @SneakyThrows
     public byte[] downloadContent(String preSignedUrl) {
         log.debug("Prepare to download content from minio: {}", preSignedUrl);
