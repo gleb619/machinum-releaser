@@ -192,6 +192,17 @@
                 ></textarea>
             </div>
 
+            <div class="mb-4" x-show="newBook?.id">
+                <label class="block text-sm font-medium text-gray-700">JSONL Chapters File</label>
+                <input accept=".jsonl" @change="handleJsonlFileSelect($event)" class="mt-1 focus:ring-blue-500 focus:border-blue-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md p-2" type="file">
+                <div x-show="newBook.jsonlFileLink" class="mt-2 text-sm text-green-600">
+                    Current file: <span x-text="newBook.jsonlFileLink"></span>
+                </div>
+                <div x-show="newBook.jsonlFileData" class="mt-2 text-sm text-blue-600">
+                    New file selected
+                </div>
+            </div>
+
             <div class="mt-6 flex justify-end">
                 <button @click="drawerOpen = false" class="mr-3 inline-flex justify-center py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                         type="button">

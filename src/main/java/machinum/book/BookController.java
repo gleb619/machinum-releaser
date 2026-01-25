@@ -3,16 +3,21 @@ package machinum.book;
 import io.avaje.validation.Validator;
 import io.jooby.Context;
 import io.jooby.Jooby;
+import io.jooby.ServiceKey;
 import io.jooby.StatusCode;
 import io.jooby.annotation.*;
 import io.jooby.exception.StatusCodeException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import machinum.book.BookRestClient.BookExportResult;
+import machinum.minio.MinioService;
 import machinum.novel.NovelScraper;
 import machinum.novel.NovelScraper.ImageData;
 
+import java.util.Base64;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 import static machinum.telegram.TelegramHandler.NameUtil.toSnakeCase;
@@ -25,11 +30,15 @@ public class BookController {
     private final Validator validator;
     private final BookRepository repository;
     private final BookRestClient bookRestClient;
+    private final MinioService minioService;
+    private final MinioService jsonlMinioService;
 
     public static BookController_ bookController(Jooby jooby) {
         return new BookController_(jooby.require(Validator.class),
                 jooby.require(BookRepository.class),
-                jooby.require(BookRestClient.class));
+                jooby.require(BookRestClient.class),
+                jooby.require(ServiceKey.key(MinioService.class, "tts")),
+                jooby.require(ServiceKey.key(MinioService.class, "jsonl")));
     }
 
     @GET("/books")
@@ -65,7 +74,7 @@ public class BookController {
 
     @POST("/books")
     public Book createBook(Book item, Context ctx) {
-        validator.validate(item);
+        validateOnCreate(item);
 
         var result = repository.create(item);
 
@@ -82,6 +91,8 @@ public class BookController {
             log.error("Malicious operation: {} <> {}", id, book.getId());
             throw new StatusCodeException(StatusCode.FORBIDDEN);
         }
+
+        uploadFileToMinio(id, book);
         repository.update(id, book);
 
         ctx.setResponseCode(StatusCode.OK);
@@ -140,6 +151,42 @@ public class BookController {
                 }, () -> ctx.setResponseCode(404));
 
         return ctx;
+    }
+
+    /* ============= */
+
+    private void validateOnCreate(Book item) {
+        boolean isEmptyImage;
+        if(Objects.isNull(item.getImageData())) {
+            item.setImageData("emptyValue");
+            isEmptyImage = true;
+        } else {
+            isEmptyImage = false;
+        }
+        validator.validate(item);
+
+        if(isEmptyImage) {
+            item.setImageData(null);
+        }
+    }
+
+    private void uploadFileToMinio(String id, Book book) {
+        // Handle JSONL file upload if provided
+        if (book.getJsonlFileData() != null && !book.getJsonlFileData().isEmpty()) {
+            try {
+                String key = "books/%s/chapters.jsonl".formatted(id);
+                byte[] data = Base64.getDecoder().decode(book.getJsonlFileData());
+                jsonlMinioService.createFile(key, data, "application/jsonl", Map.of(
+                        "bookId", book.getId()
+                ));
+                book.setJsonlFileLink(key);
+                book.setJsonlFileData(null); // Clear the data after upload
+                log.info("Uploaded JSONL file for book {} to MinIO with key: {}", id, key);
+            } catch (Exception e) {
+                log.error("Failed to upload JSONL file for book {}", id, e);
+                throw new StatusCodeException(StatusCode.SERVER_ERROR, "Failed to upload JSONL file");
+            }
+        }
     }
 
 }

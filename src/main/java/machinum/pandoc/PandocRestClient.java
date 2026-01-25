@@ -268,7 +268,8 @@ public class PandocRestClient {
     public static class PandocRequest {
 
         private Integer startIndex;
-        private List<byte[]> markdownFiles;
+        @Builder.Default
+        private List<byte[]> markdownFiles = new ArrayList<>();
         private byte[] coverImage;
         private String coverContentType;
         private String title;
@@ -285,16 +286,22 @@ public class PandocRestClient {
         private String date;
         private String pubdate;
         private String website;
-        private List<String> socialLinks;
+        @Builder.Default
+        private List<String> socialLinks = new ArrayList<>();
         private String outputFilename;
+        @Builder.Default
         private String language = "ru-RU";
         @Builder.Default
         private int tocDepth = 2;
 
 
         public static PandocRequest createNew(Function<PandocRequest.PandocRequestBuilder, PandocRequest.PandocRequestBuilder> creator) {
-            return creator.apply(PandocRequest.builder())
+            PandocRequest request = creator.apply(PandocRequest.builder())
                     .build();
+
+            request.setDescription(request.getDescription().replaceAll("\n", " "));
+
+            return request;
         }
 
     }

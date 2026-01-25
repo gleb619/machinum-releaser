@@ -63,6 +63,8 @@ public class Book {
     @NotNull
     @NotEmpty
     private String originImageId;
+    private String jsonlFileLink;
+    private String jsonlFileData;
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();
     @Builder.Default

@@ -129,9 +129,14 @@ public class Config implements Extension {
         var ttsRestClient = ttsRestClient(config);
 
         var minioClient = minioClient(config);
-        var minioService = new MinioService(minioClient, HttpClient.newHttpClient(), config.getString(MINIO_BUCKET_NAME));
+        var ttsBucket = config.getString(MINIO_BUCKET_NAME);
+        var jsonlBucket = config.getString(MINIO_JSONL_BUCKET_NAME);
+
+        var minioService = new MinioService(minioClient, HttpClient.newHttpClient(), ttsBucket);
+        var jsonlMinioService = new MinioService(minioClient, HttpClient.newHttpClient(), jsonlBucket);
         var initializer = initializer(minioService, ttsRestClient, textInfo, config);
-        registry.putIfAbsent(MinioService.class, minioService);
+        registry.putIfAbsent(ServiceKey.key(MinioService.class, "tts"), minioService);
+        registry.putIfAbsent(ServiceKey.key(MinioService.class, "jsonl"), jsonlMinioService);
         registry.putIfAbsent(Initializer.class, initializer);
 
         var coverArt = coverArt(minioService, config);
@@ -149,7 +154,7 @@ public class Config implements Extension {
         var websiteHandler = new WebsiteHandler(releaseRepository, restClient, workDir);
         registry.putIfAbsent(WebsiteHandler.class, websiteHandler);
 
-        var handler = new ActionsHandler(websiteHandler, tgHandler, releaseRepository, targetRepository, bookRepository, restClient);
+        var handler = new ActionsHandler(websiteHandler, tgHandler, releaseRepository, targetRepository, bookRepository, restClient, jsonlMinioService, jsonlConverter);
         registry.putIfAbsent(ActionsHandler.class, handler);
         registry.putIfAbsent(Scheduler.class, new Scheduler(Executors.newScheduledThreadPool(1), releaseRepository, handler));
         registry.putIfAbsent(ServiceKey.key(HttpClient.class, "assets"), HttpClient.newBuilder()
@@ -163,9 +168,11 @@ public class Config implements Extension {
                 application.require(Initializer.class).init();
             }
 
-            application.require(Scheduler.class).init();
+            //application.require(Scheduler.class).init();
             application.require(CacheService.class)
                     .scheduleCleanup(1, TimeUnit.HOURS);
+
+            createBuckets(application, ttsBucket, jsonlBucket);
         });
         application.onStop(() -> {
             application.require(Scheduler.class).close();
@@ -285,6 +292,20 @@ public class Config implements Extension {
                 .build();
     }
 
+    private static void createBuckets(@NotNull Jooby application, String ttsBucket, String jsonlBucket) {
+        try {
+            log.info("Creating minio buckets...");
+            // Create buckets if they don't exist
+            application.require(ServiceKey.key(MinioService.class, "tts"))
+                    .createBucketIfNotExists(ttsBucket);
+
+            application.require(ServiceKey.key(MinioService.class, "jsonl"))
+                    .createBucketIfNotExists(jsonlBucket);
+        } catch (Exception e) {
+            log.error("Can't create buckets");
+        }
+    }
+
     @NoArgsConstructor(access = AccessLevel.PRIVATE)
     public static class Misc {
 
@@ -356,6 +377,7 @@ public class Config implements Extension {
         public static final String MINIO_ACCESS_KEY = "minio.accessKey";
         public static final String MINIO_SECRET_KEY = "minio.secretKey";
         public static final String MINIO_BUCKET_NAME = "minio.bucketName";
+        public static final String MINIO_JSONL_BUCKET_NAME = "minio.jsonlBucketName";
 
     }
 

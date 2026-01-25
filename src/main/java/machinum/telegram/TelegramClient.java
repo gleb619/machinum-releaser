@@ -179,6 +179,11 @@ public class TelegramClient implements AutoCloseable {
 
     @SneakyThrows
     public Response sendImagesWithMessage(@NonNull String chatId, @NonNull String messageText, @NonNull List<Image> images) {
+        return sendImagesWithMessage(chatId, Caption.html(messageText), images);
+    }
+
+    @SneakyThrows
+    public Response sendImagesWithMessage(@NonNull String chatId, @NonNull Caption caption, @NonNull List<Image> images) {
         List<InputMediaPhoto> media = new ArrayList<>();
         List<File> toDelete = new ArrayList<>();
 
@@ -205,8 +210,8 @@ public class TelegramClient implements AutoCloseable {
 
             if (isLast) {
                 cover.hasSpoiler(true)
-                        .caption(trim(messageText, TELEGRAM_LIMIT))
-                        .parseMode(ParseMode.HTML);
+                        .caption(trim(caption.getText(), TELEGRAM_LIMIT))
+                        .parseMode(caption.getParseMode());
             }
 
             media.add(cover);
@@ -219,6 +224,10 @@ public class TelegramClient implements AutoCloseable {
 
             if (!response.isOk()) {
                 log.error("Found mistake: code={}, description={}", response.errorCode(), response.description());
+                if (response.errorCode() == 400 && Objects.nonNull(response.description()) && response.description().toLowerCase().contains("can't parse entities")) {
+                    Integer byteOffset = parseByteOffset(response.description());
+                    throw new HtmlParseException(response.description(), response.errorCode(), byteOffset);
+                }
                 throw new AppException("Error occurred: %s".formatted(objectMapper.writeValueAsString(response)));
             } else {
                 var jsonNode = objectMapper.valueToTree(response);
@@ -226,6 +235,8 @@ public class TelegramClient implements AutoCloseable {
 
                 return Response.of(messageIds, jsonNode);
             }
+        } catch (HtmlParseException e) {
+            throw e; // Re-throw HtmlParseException
         } catch (Exception e) {
             log.error("Error executing send media group request: ", e);
             throw new AppException("Failed to execute send media group request", e);
@@ -277,6 +288,27 @@ public class TelegramClient implements AutoCloseable {
         }
 
         return messageText;
+    }
+
+    private Integer parseByteOffset(String description) {
+        String marker = "byte offset ";
+        int index = description.indexOf(marker);
+        if (index != -1) {
+            int start = index + marker.length();
+            int end = start;
+            while (end < description.length() && Character.isDigit(description.charAt(end))) {
+                end++;
+            }
+            if (start < end) {
+                try {
+                    return Integer.parseInt(description.substring(start, end));
+                } catch (NumberFormatException e) {
+                    // ignore
+                }
+            }
+        }
+
+        return -1;
     }
 
     @Value
@@ -369,20 +401,28 @@ public class TelegramClient implements AutoCloseable {
             return this;
         }
 
+        @SneakyThrows
         public AudioSender processChunks() {
             for (int i = 0; i < audioChunks.size(); i++) {
                 var chunk = audioChunks.get(i);
                 boolean isFirstChunk = (i == 0);
 
                 var sendRequest = buildRequest(chunk, isFirstChunk, i);
-                var response = executeRequestSafely(sendRequest, i);
-
-                if (isFirstChunk) {
-                    firstSuccessfulResponse.set(response);
-                    replyMessageId.set(extractReplyMessageId(response));
+                if(i == 0) {
+                    replyMessageId.set(103);
                 }
+                if(i >= 5) {
+                    var response = executeRequestSafely(sendRequest, i);
 
-                log.info("Successfully sent media group chunk {}/{}.", i + 1, audioChunks.size());
+                    if (isFirstChunk) {
+                        firstSuccessfulResponse.set(response);
+                        replyMessageId.set(extractReplyMessageId(response));
+                    }
+
+                    log.info("Successfully sent media group chunk {}/{}.", i + 1, audioChunks.size());
+
+                    Thread.sleep(5_000 + (i * 1_000L));
+                }
             }
             return this;
         }
@@ -446,6 +486,49 @@ public class TelegramClient implements AutoCloseable {
                     ? response.messages()[0].messageId()
                     : -1;
         }
+    }
+
+    @Getter
+    public static class HtmlParseException extends RuntimeException {
+
+        private final String description;
+        private final int errorCode;
+        private final int byteOffset;
+
+        public HtmlParseException(String description, int errorCode, int byteOffset, Throwable cause) {
+            super(Objects.isNull(cause) ? description : "%s:%s".formatted(cause.getMessage(), description), cause);
+            this.description = description;
+            this.errorCode = errorCode;
+            this.byteOffset = byteOffset;
+        }
+
+        public HtmlParseException(String description, int errorCode, int byteOffset) {
+            this(description, errorCode, byteOffset, null);
+        }
+
+    }
+
+    @Value
+    @Builder(toBuilder = true)
+    public static class Caption {
+
+        String text;
+
+        ParseMode parseMode;
+
+        public static Caption html(String text) {
+            return new Caption(text, ParseMode.HTML);
+        }
+
+        public static Caption markdownLegacy(String text) {
+            return new Caption(text, ParseMode.Markdown);
+        }
+
+        @Override
+        public String toString() {
+            return text;
+        }
+
     }
 
 }

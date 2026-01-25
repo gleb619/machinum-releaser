@@ -6,6 +6,7 @@ import machinum.audio.CoverArt;
 import machinum.audio.TTSRestClient.Metadata;
 import machinum.book.Book;
 import machinum.book.BookRestClient;
+import machinum.chapter.Chapter;
 import machinum.exception.AppException;
 import machinum.image.ImageRepository;
 import machinum.image.cover.CoverService;
@@ -119,13 +120,13 @@ public class TelegramHandler implements ActionHandler {
 
         log.debug("Fetching ready chapters for: bookID={}, mode={}", tgContext.getRemoteBookId(), tgContext.getChatType());
 
-        var chapterList = bookRestClient.getReadyChaptersCached(tgContext.getRemoteBookId(), tgContext.getChaptersRequest().first(), tgContext.getChaptersRequest().second());
+        var chapterList = getChapters(context, tgContext.getChaptersRequest().first(), tgContext.getChaptersRequest().second());
         var markdowns = chapterList.stream()
                 .map(markdownConverter::toMarkdown)
                 .map(s -> s.getBytes(StandardCharsets.UTF_8))
                 .toList();
         var image = imageRepository.getById(tgContext.getBook().getImageId());
-        var partIndex = context.getReleasePosition() + 1;
+        var partIndex = context.getReleasePosition();
 
         var number = partIndex + "";
 
@@ -181,7 +182,7 @@ public class TelegramHandler implements ActionHandler {
 
     private void releaseAudio(ActionContext context) {
         var tgContext = resolveTgContext(context);
-        var partIndex = context.getReleasePosition() + 1;
+        var partIndex = context.getReleasePosition();
         var image = imageRepository.getById(tgContext.getBook().getImageId());
         var number = partIndex + "";
 
@@ -285,6 +286,22 @@ public class TelegramHandler implements ActionHandler {
         return new AudioFiles(first, rest);
     }
 
+    private List<Chapter> getChapters(ActionContext context, int from, int to) {
+        if (context.get(HAS_JSONL_CHAPTERS_KEYWORD) != null && (Boolean) context.get(HAS_JSONL_CHAPTERS_KEYWORD)) {
+            @SuppressWarnings("unchecked")
+            List<Chapter> allChapters = context.get(CHAPTERS_KEYWORD);
+            // Assuming chapters are 0-indexed or 1-indexed, adjust accordingly
+            // If from=1, to=5, get indices 0 to 4 (assuming 1-based)
+            int startIndex = from - 1; // assuming 1-based
+            int endIndex = to - 1;
+            if (startIndex < 0) startIndex = 0;
+            if (endIndex >= allChapters.size()) endIndex = allChapters.size() - 1;
+            return allChapters.subList(startIndex, endIndex + 1);
+        } else {
+            return bookRestClient.getReadyChaptersCached(context.getRemoteBookId(), from, to);
+        }
+    }
+
     public record AudioFiles(byte[] first, List<byte[]> rest) {}
 
     /* ============= */
@@ -345,7 +362,8 @@ public class TelegramHandler implements ActionHandler {
             var result = new StringBuilder();
             boolean previousWasUnderscore = false;
 
-            for (char c : input.trim().toCharArray()) {
+            char[] charArray = input.trim().toCharArray();
+            for (char c : charArray) {
                 if (Character.isWhitespace(c) || !Character.isLetterOrDigit(c)) {
                     if (!previousWasUnderscore) {
                         result.append('_');
@@ -364,7 +382,7 @@ public class TelegramHandler implements ActionHandler {
             }
 
             // Remove leading underscore if present
-            var snakeCase = result.toString();
+            var snakeCase = result.toString().replace(" ", "");
             return snakeCase.startsWith("_") ? snakeCase.substring(1) : snakeCase;
         }
 

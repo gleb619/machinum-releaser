@@ -61,9 +61,9 @@ public class BookRepository {
     public String create(Book book) {
         return jdbi.withHandle(handle -> handle.createUpdate("""
                             INSERT INTO books (
-                                unique_id, ru_name, en_name, origin_name, link, link_text, type, genre, tags, year, chapters, author, description
+                                unique_id, ru_name, en_name, origin_name, link, link_text, type, genre, tags, year, chapters, author, description, jsonl_file_link
                             ) VALUES (
-                                :uniqueId, :ruName, :enName, :originName, :link, :linkText, :type, :genreString, :tagsString, :year, :chapters, :author, :description
+                                :uniqueId, :ruName, :enName, :originName, :link, :linkText, :type, :genreString, :tagsString, :year, :chapters, :author, :description, :jsonlFileLink
                             ) RETURNING id
                         """)
                 .bind("genreString", getGenreString(book))
@@ -92,6 +92,7 @@ public class BookRepository {
                                 description = :description,
                                 image_id = :imageId,
                                 origin_image_id = :originImageId,
+                                jsonl_file_link = :jsonlFileLink,
                                 updated_at = :updatedAtTime
                             WHERE id = :id
                         """)

@@ -8,7 +8,10 @@ import lombok.extern.slf4j.Slf4j;
 import machinum.book.Book;
 import machinum.book.BookRepository;
 import machinum.book.BookRestClient;
+import machinum.chapter.Chapter;
+import machinum.chapter.ChapterJsonlConverter;
 import machinum.exception.AppException;
+import machinum.minio.MinioService;
 import machinum.release.Release;
 import machinum.release.Release.ReleaseStatus;
 import machinum.release.Release.ReleaseTarget;
@@ -16,13 +19,21 @@ import machinum.release.ReleaseRepository;
 import machinum.release.ReleaseRepository.ReleaseTargetRepository;
 import machinum.telegram.TelegramHandler;
 import machinum.website.WebsiteHandler;
+import org.jetbrains.annotations.NotNull;
+
+import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 public interface ActionHandler {
+
+    String CHAPTERS_KEYWORD = "chapters";
+    String HAS_JSONL_CHAPTERS_KEYWORD = "hasJsonlChapters";
 
     HandlerResult handle(ActionContext context);
 
@@ -36,6 +47,8 @@ public interface ActionHandler {
         private final ReleaseTargetRepository targetRepository;
         private final BookRepository bookRepository;
         private final BookRestClient bookRestClient;
+        private final MinioService jsonlMinioService;
+        private final ChapterJsonlConverter chapterJsonlConverter;
 
         public HandlerResult handle(Release release) {
             log.debug("Got request to execute action for release: {}", release);
@@ -43,7 +56,7 @@ public interface ActionHandler {
             var result = repository.findReleasePosition(release.getId());
             var releaseTarget = targetRepository.getById(release.getReleaseTargetId());
             var book = bookRepository.getById(releaseTarget.getBookId());
-            var remoteBookId = getRemoteBookId(book.getUniqueId());
+            var remoteBookId = getRemoteBookId(book.getUniqueId(), book.getJsonlFileLink());
 
             var context = ActionContext.builder()
                     .release(release)
@@ -55,6 +68,10 @@ public interface ActionHandler {
                     .releasePosition(result.getIndex())
                     .remoteBookId(remoteBookId)
                     .build();
+
+            if (book.getJsonlFileLink() != null && !book.getJsonlFileLink().isEmpty()) {
+                downloadLocalFile(book, context);
+            }
 
             //TODO return new copy of release in HandlerResult
             var output = switch (actionType) {
@@ -69,13 +86,57 @@ public interface ActionHandler {
             return output;
         }
 
-        private String getRemoteBookId(String uniqueId) {
+        private String getRemoteBookId(String uniqueId, String jsonlFileLink) {
+            if(Objects.nonNull(jsonlFileLink)) return "localId";
+
             var list = bookRestClient.getAllBookTitlesCached();
             return list.stream()
                     .filter(dto -> Objects.equals(dto.title(), uniqueId))
                     .findFirst()
                     .orElseThrow(() -> new AppException("Can't find remote book for given title: %s", uniqueId))
                     .id();
+        }
+
+        private void downloadLocalFile(Book book, ActionContext context) {
+            // Download and parse JSONL chapters if available
+            try {
+                var fileData = jsonlMinioService.getByKey(book.getJsonlFileLink());
+                var jsonlContent = new String(fileData.data(), StandardCharsets.UTF_8);
+                var chapters = parseChapters(jsonlContent);
+
+                context.set(CHAPTERS_KEYWORD, chapters);
+                context.set(HAS_JSONL_CHAPTERS_KEYWORD, true);
+            } catch (Exception e) {
+                log.error("Failed to download or parse JSONL file for book: {}", book.getUniqueId(), e);
+                throw new AppException("Failed to process JSONL chapters", e);
+            }
+        }
+
+        private List<Chapter> parseChapters(String jsonlContent) {
+            var chapters = chapterJsonlConverter.fromString(jsonlContent);
+            if(Objects.isNull(chapters) || chapters.isEmpty()) {
+                throw new AppException("Chapters can't be empty");
+            }
+
+            boolean lackOfNumbers = Objects.isNull(chapters.getFirst().getNumber());
+            boolean rawMode = (Objects.isNull(chapters.getFirst().getTranslatedText()) &&
+                    !chapters.getFirst().get("value", "").isBlank());
+
+            if(lackOfNumbers) {
+                AtomicInteger counter = new AtomicInteger(1);
+                chapters.forEach(chapter -> chapter.setNumber(counter.getAndIncrement()));
+            }
+            if(rawMode) {
+                chapters.forEach(chapter -> {
+                    String value = chapter.get(Chapter.VALUE, "");
+                    String[] result = value.split("\\R", 2);
+
+                    chapter.setTranslatedTitle(result[0]);
+                    chapter.setTranslatedText(result[1].replaceAll("\n", "\n  \n"));
+                });
+            }
+
+            return chapters;
         }
 
     }

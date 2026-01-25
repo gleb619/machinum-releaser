@@ -1,0 +1,5 @@
+services:
+  epub-builder:
+    image: borispc3.ai:4001/epub-builder:latest
+    ports:
+      - "5000:5000"

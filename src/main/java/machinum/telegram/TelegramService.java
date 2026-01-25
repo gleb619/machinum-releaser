@@ -1,5 +1,6 @@
 package machinum.telegram;
 
+import com.pengrad.telegrambot.model.request.ParseMode;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
@@ -19,9 +20,14 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+
 import static machinum.telegram.TelegramClient.MPEG_CONTENT_TYPE;
 import static machinum.telegram.TelegramClient.TELEGRAM_LIMIT;
 import static machinum.telegram.TelegramMessageDSL.dsl;
+import static machinum.telegram.TelegramMessageDSL.markdownLegacy;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -40,7 +46,7 @@ public class TelegramService {
         Book truncatedBook = truncate(newBook);
 
         //@formatter:off
-        String message = dsl()
+        var messageCaption = markdownLegacy()
                 .customEmoji("\uD83C\uDF1F")
                 .bold(" Анонс новой книги! ")
                 .customEmoji("\uD83C\uDF1F")
@@ -75,7 +81,7 @@ public class TelegramService {
                         .newLine()
                 )
                 .optionalBlock(unused -> !truncatedBook.getTags().isEmpty(), dsl -> dsl
-                    .customEmoji("#")
+                    .customEmoji("♯")
                     .bold(" Теги: ")
                     .tags(truncatedBook.getTags())
                         .newLine()
@@ -104,8 +110,12 @@ public class TelegramService {
                     .newLine()
                 .text("Счастливого чтения! ")
                 .customEmoji("\uD83C\uDF1F")
-                .build();
+                .buildCaption();
         //@formatter:on
+
+        //TODO: use messageCaption instead
+        @Deprecated
+        var message = messageCaption.getText();
 
         if(message.length() - TELEGRAM_LIMIT > 0) {
             log.warn("Telegram message is bigger than limit: {} <> {}", message.length(), TELEGRAM_LIMIT);
@@ -116,13 +126,25 @@ public class TelegramService {
                 .sum() + message.getBytes(StandardCharsets.UTF_8).length;
 
         //https://limits.tginfo.me/en, sendMediaGroupLimit is - up to 1,024 characters
-        log.info("Created message: size={} raw, size={} kb, caption={} chars, message={}", "%,d".formatted(totalBytes), (float) totalBytes / 1024, message.length(), message);
+        log.info("Created message: size={} raw, size={} kb, caption={} chars, message={}...", "%,d".formatted(totalBytes),
+                (float) totalBytes / 1024, message.length(), message.replaceAll("\n", " ").substring(Math.max(message.length(), 50)));
 
-        var response = client.sendImagesWithMessage(chatId, message, images);
+        // Validate XML message before sending
+        if(ParseMode.HTML == messageCaption.getParseMode()) {
+            validateMessage(message);
+        }
 
-        log.info("Published new book: messageId={}", response.messageId());
+        try {
+            Response response = client.sendImagesWithMessage(chatId, messageCaption, images);
 
-        return response;
+            log.info("Published new book: messageId={}", response.messageId());
+            return response;
+        } catch (TelegramClient.HtmlParseException e) {
+            log.error("Failed to publish new book due to HTML parsing error: {}", e.getDescription());
+            String errorDetails = detectUnclosedTags(message.getBytes(StandardCharsets.UTF_8), e.getByteOffset());
+            log.error("HTML parsing error details:\n{}", errorDetails);
+            throw e; // Re-throw the HtmlParseException
+        }
     }
 
     @SneakyThrows
@@ -309,6 +331,115 @@ public class TelegramService {
         if (book.getChapters() != null) length += book.getChapters().toString().length();
 
         return length;
+    }
+
+    private String detectUnclosedTags(byte[] htmlBytes, int byteOffset) {
+        String html = new String(htmlBytes, StandardCharsets.UTF_8);
+        int errorCharPos = byteOffsetToCharPosition(html, byteOffset);
+
+        StringBuilder result = new StringBuilder();
+        List<String> stack = new ArrayList<>();
+        List<Integer> positions = new ArrayList<>();
+        int pos = 0;
+
+        while (pos < html.length()) {
+            if (html.charAt(pos) == '<') {
+                int end = html.indexOf('>', pos);
+                if (end == -1) break;
+                String tag = html.substring(pos + 1, end).trim();
+                if (tag.startsWith("/")) {
+                    // Closing tag
+                    String tagName = tag.substring(1).split("\\s+")[0];
+                    if (stack.isEmpty() || !stack.get(stack.size() - 1).equals(tagName)) {
+                        int bytePos = charPositionToByteOffset(html, pos);
+                        result.append("Unclosed end tag </").append(tagName).append("> at byte position ").append(bytePos).append(", char position ").append(pos).append("\n");
+                        highlightError(html, pos, result);
+                    } else {
+                        stack.remove(stack.size() - 1);
+                        positions.remove(positions.size() - 1);
+                    }
+                } else if (!tag.endsWith("/") && !tag.isEmpty()) {
+                    // Opening tag, not self-closing
+                    String tagName = tag.split("\\s+")[0];
+                    stack.add(tagName);
+                    positions.add(pos);
+                }
+                pos = end + 1;
+            } else {
+                pos++;
+            }
+        }
+
+        // Remaining unclosed opening tags
+        for (int i = 0; i < stack.size(); i++) {
+            String tag = stack.get(i);
+            int position = positions.get(i);
+            int bytePos = charPositionToByteOffset(html, position);
+            result.append("Unclosed opening tag <").append(tag).append("> at byte position ").append(bytePos).append(", char position ").append(position).append("\n");
+            highlightError(html, position, result);
+        }
+
+        // Highlight the error location from byteOffset
+        if (errorCharPos < html.length()) {
+            result.append("Error location at byte offset ").append(byteOffset).append(" (char ").append(errorCharPos).append("):\n");
+            highlightError(html, errorCharPos, result);
+        }
+
+        return result.toString().replaceAll("\n", " ");
+    }
+
+    private int byteOffsetToCharPosition(String html, int byteOffset) {
+        if (byteOffset <= 0) return 0;
+        byte[] bytes = html.getBytes(StandardCharsets.UTF_8);
+        if (byteOffset >= bytes.length) return html.length();
+        int charIndex = 0;
+        int byteIndex = 0;
+        while (byteIndex < byteOffset && charIndex < html.length()) {
+            int charBytes = String.valueOf(html.charAt(charIndex)).getBytes(StandardCharsets.UTF_8).length;
+            if (byteIndex + charBytes > byteOffset) {
+                break;
+            }
+            byteIndex += charBytes;
+            charIndex++;
+        }
+        return charIndex;
+    }
+
+    private int charPositionToByteOffset(String html, int charPos) {
+        if (charPos <= 0) return 0;
+        return html.substring(0, charPos).getBytes(StandardCharsets.UTF_8).length;
+    }
+
+    private void highlightError(String html, int errorPos, StringBuilder result) {
+        int start = Math.max(0, errorPos - 30);
+        int end = Math.min(html.length(), errorPos + 30);
+        String substr = html.substring(start, end);
+        int relativePos = errorPos - start;
+        if (relativePos >= 0 && relativePos < substr.length()) {
+            String before = substr.substring(0, relativePos);
+            String badChar = String.valueOf(substr.charAt(relativePos));
+            String after = substr.substring(relativePos + 1);
+            result.append(before).append("|").append(badChar).append("|").append(after).append("\n");
+        } else {
+            result.append(substr).append("\n");
+        }
+    }
+
+    @SneakyThrows
+    void validateMessage(String html) {
+        try {
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            // Disable external entity resolution for security and to prevent URL fetching
+            factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+            factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
+            factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+            factory.setExpandEntityReferences(false);
+            DocumentBuilder builder = factory.newDocumentBuilder();
+            String wrappedHtml = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<root>\n%s\n</root>".formatted(html);
+            builder.parse(new java.io.ByteArrayInputStream(wrappedHtml.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        } catch (Exception e) {
+            throw new AppException("HTML validation failed for message: %s".formatted(e.getMessage()), e);
+        }
     }
 
 }

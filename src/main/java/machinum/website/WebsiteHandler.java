@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import machinum.book.BookRestClient;
 import machinum.chapter.Chapter;
 import machinum.exception.AppException;
+import machinum.scheduler.ActionHandler.ActionContext;
 import machinum.machinimaserver.BookApiExporter.CheckResponse;
 import machinum.machinimaserver.MachinimaServer;
 import machinum.machinimaserver.MachinimaServer.Context;
@@ -60,7 +61,7 @@ public class WebsiteHandler implements ActionHandler, AutoCloseable {
 
         log.debug("Fetching ready chapters for: bookID={}", remoteBookId);
 
-        var chapterList = bookRestClient.getReadyChaptersCached(remoteBookId, chaptersRequest.first(), chaptersRequest.second());
+        var chapterList = getChapters(context, chaptersRequest.first(), chaptersRequest.second());
         var releaseSessionId = md5(chaptersRequest.toString());
 
         acquireServer(sitePort, releaseSessionId, chapterList, release);
@@ -196,6 +197,8 @@ public class WebsiteHandler implements ActionHandler, AutoCloseable {
     private String responseHtml(boolean success) {
         var script = success ? "<script> setTimeout(function() { window.close(); }, 1000); </script>" : "";
         var text = success ? "This page will close in 1 seconds..." : "Provided wrong or non existed release";
+
+        //TODO: move to resources file in classpath
         return """
            <!DOCTYPE html>
            <html lang="en">
@@ -241,6 +244,22 @@ public class WebsiteHandler implements ActionHandler, AutoCloseable {
                </div>
            </body>
            </html>""".formatted(script, text);
+    }
+
+    private List<Chapter> getChapters(ActionContext context, int from, int to) {
+        if (context.get(HAS_JSONL_CHAPTERS_KEYWORD) != null && (Boolean) context.get(HAS_JSONL_CHAPTERS_KEYWORD)) {
+            @SuppressWarnings("unchecked")
+            List<Chapter> allChapters = (List<Chapter>) context.get(CHAPTERS_KEYWORD);
+            // Assuming chapters are 0-indexed or 1-indexed, adjust accordingly
+            // If from=1, to=5, get indices 0 to 4 (assuming 1-based)
+            int startIndex = from - 1; // assuming 1-based
+            int endIndex = to - 1;
+            if (startIndex < 0) startIndex = 0;
+            if (endIndex >= allChapters.size()) endIndex = allChapters.size() - 1;
+            return allChapters.subList(startIndex, endIndex + 1);
+        } else {
+            return bookRestClient.getReadyChaptersCached(context.getRemoteBookId(), from, to);
+        }
     }
 
     @Override

@@ -1,0 +1,1 @@
+ALTER TABLE books ADD COLUMN jsonl_file_link VARCHAR(255);

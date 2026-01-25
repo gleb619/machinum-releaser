@@ -14,12 +14,14 @@ export function listApp() {
     currentRequest: undefined,
 
     initList() {
+      this.activeId = this.receiveValue('activeId', null);
       this.fetchBooks();
     },
 
     setSelectedItem(bookId) {
-      this.activeId = bookId;
+      this.changeValue('activeId', bookId);
       this.selectedBook = this.books.find(item => item.id === this.activePopupId);
+      this.fetchSchedule(this.activeId);
     },
 
     openDrawer() {
@@ -67,9 +69,8 @@ export function listApp() {
         if(this.books && this.books.length > 0) {
             const itemId = this.activeId || this.books[0].id;
             this.setSelectedItem(itemId);
-            this.fetchSchedule(itemId);
         } else {
-            this.activeId = undefined;
+            this.changeValue('activeId', null);
         }
     },
 
@@ -125,7 +126,7 @@ export function listApp() {
                 this.showToast('Error: ' + error.message, 'error');
             });
         }
-        this.activeId = null;
+        this.changeValue('activeId', null);
     },
 
   };

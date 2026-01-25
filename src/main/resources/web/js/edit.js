@@ -31,6 +31,7 @@ export function editApp() {
         description: '',
         imageId: '00000000-0000-0000-0000-000000000000',
         originImageId: '00000000-0000-0000-0000-000000000000',
+        jsonlFileData: null,
       };
       this.genreInput = '';
       this.tagInput = '';
@@ -76,6 +77,14 @@ export function editApp() {
         await this.fetchBooks();
         this.drawerOpen = false;
         this.showToast('Book changed successfully!');
+
+        //On Create, open edit panel after success creation
+        if(!isUpdate) {
+            const rsp = await response.json();
+            setTimeout(() => {
+              this.editBook(this.books.find(item => item.id === rsp.id));
+            }, 300);
+        }
       } catch (error) {
         console.error('Error persisting book:', error);
       }
@@ -187,6 +196,20 @@ export function editApp() {
              console.error('Error book importing:', error);
             this.showToast('Failed to import book: ' + error.message, true);
         }
+    },
+
+    handleJsonlFileSelect(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            // Remove the data URL prefix (e.g., "data:application/jsonl;base64,")
+            const base64 = e.target.result.split(',')[1];
+            this.newBook.jsonlFileData = base64;
+            this.showToast('JSONL file selected');
+        };
+        reader.readAsDataURL(file);
     },
 
     handleScraperResult(event) {

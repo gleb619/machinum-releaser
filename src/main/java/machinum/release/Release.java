@@ -25,9 +25,12 @@ public class Release implements MetadataSupport<Release> {
     private String id;
     private String releaseActionType;
     private String releaseTargetId;
-    private LocalDate date;
-    private int chapters;
-    private String status;
+    @Builder.Default
+    private LocalDate date = LocalDate.now();
+    @Builder.Default
+    private int chapters = 0;
+    @Builder.Default
+    private String status = ReleaseStatus.DRAFT.name();
     @Builder.Default
     @ToString.Exclude
     @EqualsAndHashCode.Exclude

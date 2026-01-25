@@ -220,6 +220,24 @@ public class MinioService {
             Map<String, String> metadata) {}
 
     /**
+     * Creates a bucket if it does not already exist.
+     *
+     * @param bucketName The name of the bucket to create.
+     */
+    public void createBucketIfNotExists(String bucketName) {
+        try {
+            boolean exists = minioClient.bucketExists(BucketExistsArgs.builder().bucket(bucketName).build());
+            if (!exists) {
+                minioClient.makeBucket(MakeBucketArgs.builder().bucket(bucketName).build());
+                log.info("Created bucket: {}", bucketName);
+            }
+        } catch (Exception e) {
+            log.error("Failed to create bucket: {}", bucketName, e);
+            throw new AppException("Failed to create bucket", e);
+        }
+    }
+
+    /**
      * Generates a pre-signed URL for an object in a specified MinIO bucket.
      * The URL is valid for 1 hour and allows GET access to the object.
      *
