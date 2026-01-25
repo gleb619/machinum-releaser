@@ -64,7 +64,7 @@ class TelegramMessageDSLTest {
                 .contains("[Click](http://example.com) ")
                 .contains("`code` ")
                 .contains("```java\npre text\n``` ");
-        assertThat(message.getParseMode()).isEqualTo(ParseMode.Markdown);
+        assertThat(message.getParseMode()).isEqualTo(ParseMode.MarkdownV2);
     }
 
     @Test
@@ -72,8 +72,8 @@ class TelegramMessageDSLTest {
         TelegramMessageDSL htmlMessage = TelegramMessageDSL.dsl(ParseMode.HTML);
         assertThat(htmlMessage.getParseMode()).isEqualTo(ParseMode.HTML);
 
-        TelegramMessageDSL markdownMessage = TelegramMessageDSL.dsl(ParseMode.Markdown);
-        assertThat(markdownMessage.getParseMode()).isEqualTo(ParseMode.Markdown);
+        TelegramMessageDSL markdownMessage = TelegramMessageDSL.dsl(ParseMode.MarkdownV2);
+        assertThat(markdownMessage.getParseMode()).isEqualTo(ParseMode.MarkdownV2);
     }
 
     @Test

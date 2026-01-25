@@ -252,8 +252,8 @@ public class WebsiteHandler implements ActionHandler, AutoCloseable {
             List<Chapter> allChapters = (List<Chapter>) context.get(CHAPTERS_KEYWORD);
             // Assuming chapters are 0-indexed or 1-indexed, adjust accordingly
             // If from=1, to=5, get indices 0 to 4 (assuming 1-based)
-            int startIndex = from - 1; // assuming 1-based
-            int endIndex = to - 1;
+            int startIndex = from; // assuming 1-based
+            int endIndex = to;
             if (startIndex < 0) startIndex = 0;
             if (endIndex >= allChapters.size()) endIndex = allChapters.size() - 1;
             return allChapters.subList(startIndex, endIndex + 1);

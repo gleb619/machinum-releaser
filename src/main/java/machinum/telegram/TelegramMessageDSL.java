@@ -49,6 +49,11 @@ public class TelegramMessageDSL {
         return dsl(ParseMode.Markdown);
     }
 
+    public static TelegramMessageDSL markdown() {
+        return dsl(ParseMode.MarkdownV2);
+    }
+
+
     public TelegramMessageDSL text(Integer text) {
         return text(String.valueOf(text));
     }
@@ -209,6 +214,16 @@ public class TelegramMessageDSL {
         return this;
     }
 
+    public static String formatTagsForMarkdown(List<String> values) {
+        return values.stream()
+                .map(s -> "#" + toSnakeCase(s))
+                .collect(Collectors.joining(", "));
+    }
+
+    public static String formatTextForMarkdown(String linkText) {
+        return linkText.replace(".", "\\\\.");
+    }
+
 }
 
 interface TelegramMessageFormatter {
@@ -314,6 +329,6 @@ class MarkdownLegacyFormatter implements TelegramMessageFormatter {
     }
 
     @Override
-    public ParseMode getParseMode() { return ParseMode.Markdown; }
+    public ParseMode getParseMode() { return ParseMode.MarkdownV2; }
 
 }

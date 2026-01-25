@@ -10,24 +10,29 @@ import machinum.exception.AppException;
 import machinum.image.Image;
 import machinum.telegram.TelegramAudio.FileMetadata;
 import machinum.telegram.TelegramClient.AudioRecord;
+import machinum.telegram.TelegramClient.Caption;
 import machinum.telegram.TelegramClient.Response;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.parsers.ParserConfigurationException;
 
+import static machinum.telegram.TelegramClient.Caption.escapeForMarkdownV2;
 import static machinum.telegram.TelegramClient.MPEG_CONTENT_TYPE;
 import static machinum.telegram.TelegramClient.TELEGRAM_LIMIT;
 import static machinum.telegram.TelegramMessageDSL.dsl;
-import static machinum.telegram.TelegramMessageDSL.markdownLegacy;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -38,6 +43,8 @@ public class TelegramService {
 
     private final TelegramProperties telegramProperties;
     private final TelegramClient client;
+    //We use custom StringSubstitutor here
+    private final BiFunction<Map<String, String>, String, String> engine;
 
     @SneakyThrows
     public Response publishNewBook(String chatId, Book newBook, List<Image> images) {
@@ -45,77 +52,31 @@ public class TelegramService {
 
         Book truncatedBook = truncate(newBook);
 
-        //@formatter:off
-        var messageCaption = markdownLegacy()
-                .customEmoji("\uD83C\uDF1F")
-                .bold(" Анонс новой книги! ")
-                .customEmoji("\uD83C\uDF1F")
-                    .newLine()
-                .text("Мы с радостью представляем новый роман в нашей библиотеке! " +
-                        "Погрузитесь в эту невероятную историю и исследуйте ее захватывающий мир.")
-                    .newLine()
-                .customEmoji("\uD83D\uDCCC")
-                .bold(" Подробности: ")
-                    .newLine()
-                .customEmoji("\uD83D\uDDCF")
-                .bold(" Название: ")
-                    .newLine(1)
-                .list(dsl -> dsl.listOf(
-                        dsl.bold("Русское: ").text(truncatedBook.getRuName()).dump(),
-                        dsl.bold("Английское: ").text(truncatedBook.getEnName()).dump(),
-                        dsl.bold("Оригинальное: ").text(truncatedBook.getOriginName()).dump()
-                ))
-                    .newLine(1)
-                .customEmoji("\uD83D\uDD17")
-                .bold(" Ссылка: ")
-                .link(truncatedBook.getLinkText(), truncatedBook.getLink())
-                    .newLine()
-                .customEmoji("\uD83D\uDCDA")
-                .bold(" Тип: ")
-                .text(truncatedBook.getType())
-                    .newLine()
-                .optionalBlock(unused -> !truncatedBook.getGenre().isEmpty(), dsl -> dsl
-                    .customEmoji("\uD83D\uDCD6")
-                    .bold(" Жанры: ")
-                    .tags(truncatedBook.getGenre())
-                        .newLine()
-                )
-                .optionalBlock(unused -> !truncatedBook.getTags().isEmpty(), dsl -> dsl
-                    .customEmoji("♯")
-                    .bold(" Теги: ")
-                    .tags(truncatedBook.getTags())
-                        .newLine()
-                )
-                .customEmoji("\uD83D\uDCC6")
-                .bold(" Год публикации: ")
-                .text(truncatedBook.getYear())
-                    .newLine()
-                .customEmoji("\uD83D\uDCDD")
-                .bold(" Количество глав: ")
-                .text(truncatedBook.getChapters())
-                    .newLine()
-                .customEmoji("✍\uFE0F")
-                .bold(" Автор: ")
-                .text(truncatedBook.getAuthor())
-                    .newLine()
-                .optionalBlock(unused -> !truncatedBook.getDescription().isEmpty(), dsl -> dsl
-                    .customEmoji("\uD83D\uDCDC")
-                    .bold(" Синопсис: ")
-                    .spoiler(truncatedBook.getDescription())
-                        .newLine()
-                )
-                .customEmoji("\uD83D\uDCAC")
-                .text(" Наслаждайтесь этим удивительным дополнением к нашей коллекции. " +
-                        "И следите за переводами первых глав в ближайшее время! ")
-                    .newLine()
-                .text("Счастливого чтения! ")
-                .customEmoji("\uD83C\uDF1F")
-                .buildCaption();
-        //@formatter:on
+        String template = loadTemplate("telegram-announcement.md");
 
-        //TODO: use messageCaption instead
-        @Deprecated
-        var message = messageCaption.getText();
+        Map<String, String> values = new HashMap<>();
+        values.put("ruName", truncatedBook.getRuName());
+        values.put("enName", truncatedBook.getEnName());
+        values.put("originName", truncatedBook.getOriginName());
+        values.put("linkText", truncatedBook.getLinkText());
+        values.put("link", truncatedBook.getLink());
+        values.put("type", truncatedBook.getType());
+        values.put("genres", TelegramMessageDSL.formatTagsForMarkdown(truncatedBook.getGenre()));
+        values.put("tags", TelegramMessageDSL.formatTagsForMarkdown(truncatedBook.getTags()));
+        values.put("year", truncatedBook.getYear().toString());
+        values.put("chapters", truncatedBook.getChapters().toString());
+        values.put("author", truncatedBook.getAuthor());
+        values.put("synopsis", truncatedBook.getDescription());
+//        values.put("synopsis", TelegramMessageDSL.formatTextForMarkdown(truncatedBook.getDescription()));
+
+        String message = engine.apply(values, template);
+
+        var messageCaption = Caption.builder()
+                .text(message)
+                .parseMode(ParseMode.Markdown)
+                .build()
+//                .escapeForV2()
+        ;
 
         if(message.length() - TELEGRAM_LIMIT > 0) {
             log.warn("Telegram message is bigger than limit: {} <> {}", message.length(), TELEGRAM_LIMIT);
@@ -140,9 +101,12 @@ public class TelegramService {
             log.info("Published new book: messageId={}", response.messageId());
             return response;
         } catch (TelegramClient.HtmlParseException e) {
-            log.error("Failed to publish new book due to HTML parsing error: {}", e.getDescription());
+            log.error("Failed to publish new book due to HTML parsing error: {}, message=\n{}\n", e.getDescription(), messageCaption.getText());
             String errorDetails = detectUnclosedTags(message.getBytes(StandardCharsets.UTF_8), e.getByteOffset());
             log.error("HTML parsing error details:\n{}", errorDetails);
+            throw e; // Re-throw the HtmlParseException
+        } catch (Exception e) {
+            log.error("Failed to publish new book due to HTML parsing error: {}, message=\n{}\n", e.getMessage(), messageCaption.getText());
             throw e; // Re-throw the HtmlParseException
         }
     }
@@ -152,33 +116,29 @@ public class TelegramService {
                                       String chapters, String status, String fileName, byte[] document) {
         log.info("Prepare to start a telegram session: {}", LocalDateTime.now());
 
-        String message = dsl()
-                .customEmoji("\uD83D\uDCD6")
-                .bold(" Обновление!")
-                .newLine()
-                .customEmoji("\uD83D\uDE80")
-                .text(" Мы рады сообщить, что новые главы уже доступны! " +
-                        "Погрузитесь глубже в историю и насладитесь последними событиями.")
-                .newLine()
-                .customEmoji("\uD83D\uDCCC")
-                .bold(" Подробности:").newLine()
-                .list(dsl -> dsl.listOf(
-                        dsl.bold("Канал: ").mention(telegramProperties.getChannelName()).dump(),
-                        dsl.bold("Название: ").replyTo(telegramProperties.getChannelName(), name, synopsisMessageId).dump(),
-                        dsl.bold("Номер главы: ").text(chapters).dump(),
-                        dsl.bold("Статус: ").text(status).dump()
-                ))
-                .newLine(1)
-                .customEmoji("\uD83D\uDCAC")
-                .text(" Как всегда, ваши отзывы и мысли приветствуются. Дайте нам знать, что вы думаете о новой главе!")
-                .newLine()
-                .text("Следите за обновлениями и приятного чтения! ")
-                .customEmoji("\uD83C\uDF1F")
+        String template = loadTemplate("telegram-chapter-update.md");
+
+        Map<String, String> values = new HashMap<>();
+        values.put("channelName", telegramProperties.getChannelName());
+        values.put("name", name);
+        values.put("synopsisMessageId", synopsisMessageId.toString());
+        values.put("chapters", chapters);
+        values.put("status", status);
+        
+        Map<String, String> values2 = new HashMap<>();
+        values.forEach((key, value) ->
+                values2.put(key, escapeForMarkdownV2(value)));
+
+        String message = engine.apply(values2, template);
+
+        var messageCaption = Caption.builder()
+                .text(message)
+                .parseMode(ParseMode.MarkdownV2)
                 .build();
 
         log.info("Created message: chatId={}, message={}", chatId, message);
 
-        return client.sendFileWithMessage(chatId, message, EPUB_CONTENT_TYPE, fileName, document);
+        return client.sendFileWithMessage(chatId, messageCaption, EPUB_CONTENT_TYPE, fileName, document);
     }
 
     @SneakyThrows
@@ -187,31 +147,21 @@ public class TelegramService {
                                     byte[] thumbnail) {
         log.info("Prepare to start a telegram session: {}", LocalDateTime.now());
 
-        String message = dsl()
-                .customEmoji("\uD83C\uDFA7")
-                .bold(" Обновление!")
-                .newLine()
-                .customEmoji("\uD83D\uDE80")
-                .text(" Мы рады сообщить, что вышла ").bold("новая аудиоверсия")
-                .text(" глав — теперь вы можете не только читать, но и ").bold("слушать")
-                .text(" любимую историю! Погрузитесь в атмосферу романа в любом месте и в любое время.")
-                .newLine()
-                .customEmoji("\uD83D\uDCCC")
-                .bold(" Подробности:").newLine()
-                .list(dsl -> dsl.listOf(
-                        dsl.bold("Канал: ").mention(telegramProperties.getChannelName()).dump(),
-                        dsl.bold("Название: ").replyTo(telegramProperties.getChannelName(), name, synopsisMessageId).dump(),
-                        dsl.bold("Главы: ").text(chapters).dump(),
-                        dsl.bold("Формат: ").text("Аудио").dump(),
-                        dsl.bold("Статус: ").text(status).dump()
-                ))
-                .newLine(1)
-                .customEmoji("\ud83d\udcac")
-                .text(" Будем рады вашим отзывам — расскажите, как звучит история в новом формате!")
-                .newLine()
-                .text("Оставайтесь с нами и приятного прослушивания! ")
-                .customEmoji("\ud83c\udf99️")
-                .customEmoji("\ud83d\udcda")
+        String template = loadTemplate("telegram-audio-update.md");
+
+        Map<String, String> values = new HashMap<>();
+        values.put("channelName", telegramProperties.getChannelName());
+        values.put("name", name);
+        values.put("synopsisMessageId", synopsisMessageId.toString());
+        values.put("chapters", chapters);
+        values.put("format", "Аудио");
+        values.put("status", status);
+
+        String message = engine.apply(values, template);
+
+        var messageCaption = Caption.builder()
+                .text(message)
+                .parseMode(ParseMode.MarkdownV2)
                 .build();
 
         log.info("Created message: chatId={}, message={}", chatId, message);
@@ -223,7 +173,7 @@ public class TelegramService {
                 .map(metadata -> new AudioRecord(metadata.getFilename(), "Chapter: %s".formatted(counter.getAndIncrement()), metadata.getMp3Data(), (int) metadata.getDurationSeconds()))
                 .collect(Collectors.toList());
 
-        return client.sendAudioFilesWithMessage(chatId, message, MPEG_CONTENT_TYPE,
+        return client.sendAudioFilesWithMessage(chatId, messageCaption, MPEG_CONTENT_TYPE,
                 telegramProperties.getChannelName(), audioRecords, thumbnail);
     }
 
@@ -439,6 +389,15 @@ public class TelegramService {
             builder.parse(new java.io.ByteArrayInputStream(wrappedHtml.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
         } catch (Exception e) {
             throw new AppException("HTML validation failed for message: %s".formatted(e.getMessage()), e);
+        }
+    }
+
+    private String loadTemplate(String resourceName) throws IOException {
+        try (InputStream is = getClass().getClassLoader().getResourceAsStream(resourceName)) {
+            if (is == null) {
+                throw new IOException("Resource not found: " + resourceName);
+            }
+            return new String(is.readAllBytes(), StandardCharsets.UTF_8);
         }
     }
 

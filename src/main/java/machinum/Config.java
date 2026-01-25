@@ -36,6 +36,10 @@ import machinum.telegram.TelegramAudio.Initializer;
 import machinum.util.Pair;
 import machinum.website.WebsiteHandler;
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.text.StringSubstitutor;
+
+import java.util.function.BiFunction;
+import java.util.function.Supplier;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.generic.GenericType;
 import org.jdbi.v3.core.mapper.ColumnMapper;
@@ -144,7 +148,13 @@ public class Config implements Extension {
         var tgProperties = telegramProperties(config);
         var telegramAudio = telegramAudio(minioService, ttsRestClient, initializer, coverArt, config);
         var tgClient = new TelegramClient(tgProperties, objectMapperTg);
-        var tgService = new TelegramService(tgProperties, tgClient);
+        var tgService = new TelegramService(tgProperties, tgClient, (values, template) -> {
+            StringSubstitutor substitutor = new StringSubstitutor(values);
+            substitutor.setVariablePrefix("{");
+            substitutor.setVariableSuffix("}");
+
+            return substitutor.replace(template);
+        });
         var tgHandler = new TelegramHandler(tgService, tgProperties, releaseRepository, imageRepository,
                 restClient, markdownConverter, pandocRestClient, coverService, telegramAudio, textInfo, coverArt);
         registry.putIfAbsent(TelegramClient.class, tgClient);

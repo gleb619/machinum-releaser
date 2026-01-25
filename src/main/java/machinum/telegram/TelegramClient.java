@@ -13,6 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 import machinum.exception.AppException;
 import machinum.image.Image;
 import net.coobird.thumbnailator.Thumbnails;
+import org.jetbrains.annotations.NotNull;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -52,9 +53,20 @@ public class TelegramClient implements AutoCloseable {
     public Response sendAudioFilesWithMessage(@NonNull String chatId, @NonNull String messageText,
                                               @NonNull String contentType, @NonNull String performer,
                                               @NonNull List<AudioRecord> audioRecords, byte[] thumbnail) {
+        return sendAudioFilesWithMessage(chatId, Caption.builder()
+                .text(messageText)
+                .parseMode(ParseMode.HTML)
+                .build(), contentType, performer, audioRecords, thumbnail);
+    }
+
+    @SneakyThrows
+    public Response sendAudioFilesWithMessage(@NonNull String chatId, @NonNull Caption messageText,
+                                              @NonNull String contentType, @NonNull String performer,
+                                              @NonNull List<AudioRecord> audioRecords, byte[] thumbnail) {
         return AudioSender.create(b -> b
                     .chatId(chatId)
-                    .messageText(messageText)
+                    .messageText(messageText.getText())
+                    .parseMode(messageText.getParseMode())
                     .contentType(contentType)
                     .performer(performer)
                     .audioRecords(audioRecords)
@@ -98,8 +110,16 @@ public class TelegramClient implements AutoCloseable {
         }
     }
 
-    @SneakyThrows
     public Response sendFileWithMessage(@NonNull String chatId, @NonNull String messageText,
+                                        @NonNull String contentType, String fileName, byte[] data) {
+        return sendFileWithMessage(chatId, Caption.builder()
+                .text(messageText)
+                .parseMode(ParseMode.HTML)
+                .build(), contentType, fileName, data);
+    }
+
+    @SneakyThrows
+    public Response sendFileWithMessage(@NonNull String chatId, @NonNull Caption messageText,
                                         @NonNull String contentType, String fileName, byte[] data) {
         if (data.length <= 0) {
             throw new IllegalArgumentException("File doesn't exists");
@@ -108,8 +128,8 @@ public class TelegramClient implements AutoCloseable {
         SendDocument request = new SendDocument(chatId, data)
                     .fileName(fileName)
                     .contentType(contentType)
-                    .caption(messageText)
-                    .parseMode(ParseMode.HTML);
+                    .caption(messageText.getText())
+                    .parseMode(messageText.getParseMode());
 
         var response = bot.execute(request);
 
@@ -209,8 +229,9 @@ public class TelegramClient implements AutoCloseable {
                     .contentType(contentType);
 
             if (isLast) {
+                String newContent = trim(caption.getParseMode(), caption.getText(), TELEGRAM_LIMIT);
                 cover.hasSpoiler(true)
-                        .caption(trim(caption.getText(), TELEGRAM_LIMIT))
+                        .caption(newContent)
                         .parseMode(caption.getParseMode());
             }
 
@@ -224,7 +245,7 @@ public class TelegramClient implements AutoCloseable {
 
             if (!response.isOk()) {
                 log.error("Found mistake: code={}, description={}", response.errorCode(), response.description());
-                if (response.errorCode() == 400 && Objects.nonNull(response.description()) && response.description().toLowerCase().contains("can't parse entities")) {
+                if (response.errorCode() == 400 && Objects.nonNull(response.description()) && response.description().toLowerCase().contains("at byte offset")) {
                     Integer byteOffset = parseByteOffset(response.description());
                     throw new HtmlParseException(response.description(), response.errorCode(), byteOffset);
                 }
@@ -282,9 +303,9 @@ public class TelegramClient implements AutoCloseable {
 
     /* ============= */
 
-    private String trim(@NonNull String messageText, int maxLength) {
+    private String trim(ParseMode parseMode, @NonNull String messageText, int maxLength) {
         if (messageText.length() > maxLength) {
-            return messageText.substring(0, maxLength) + "...";
+            return messageText.substring(0, maxLength) + (parseMode == ParseMode.MarkdownV2 ? "\\.\\.\\." : "...");
         }
 
         return messageText;
@@ -357,6 +378,7 @@ public class TelegramClient implements AutoCloseable {
 
         String chatId;
         String messageText;
+        ParseMode parseMode;
         String contentType;
         String performer;
         List<AudioRecord> audioRecords;
@@ -454,7 +476,7 @@ public class TelegramClient implements AutoCloseable {
                 }
 
                 ((InputMediaAudio) mediaDocuments[mediaDocuments.length - 1])
-                        .caption(caption).parseMode(ParseMode.HTML);
+                        .caption(caption).parseMode(parseMode);
             }
 
             var request = new SendMediaGroup(chatId, mediaDocuments);
@@ -521,7 +543,7 @@ public class TelegramClient implements AutoCloseable {
         }
 
         public static Caption markdownLegacy(String text) {
-            return new Caption(text, ParseMode.Markdown);
+            return new Caption(text, ParseMode.MarkdownV2);
         }
 
         @Override
@@ -529,6 +551,33 @@ public class TelegramClient implements AutoCloseable {
             return text;
         }
 
+        public Caption escapeForV2() {
+            return toBuilder()
+                    .text(escapeForMarkdownV2(text))
+                    .build();
+        }
+
+        public static String escapeForMarkdownV2(String text) {
+            return text
+                    .replace("_", "\\_")
+                    .replace("*", "\\*")
+                    .replace("[", "\\[")
+                    .replace("]", "\\]")
+                    .replace("(", "\\(")
+                    .replace(")", "\\)")
+                    .replace("~", "\\~")
+                    .replace("`", "\\`")
+                    .replace(">", "\\>")
+                    .replace("#", "\\#")
+                    .replace("+", "\\+")
+                    .replace("-", "\\-")
+                    .replace("=", "\\=")
+                    .replace("|", "\\|")
+                    .replace("{", "\\{")
+                    .replace("}", "\\}")
+                    .replace(".", "\\.")
+                    .replace("!", "\\!");
+        }
     }
 
 }
