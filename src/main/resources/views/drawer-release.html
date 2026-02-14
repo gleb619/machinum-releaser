@@ -45,6 +45,11 @@
                             </div>
                         </div>
                         <div class="flex">
+                            <button @click="editReleaseTargets(release)" class="mr-2 text-blue-500 hover:text-blue-700">
+                                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
+                                </svg>
+                            </button>
                             <button @click="copyRelease(release)" class="mr-2 text-blue-500 hover:text-blue-700">
                                 <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24">
                                     <path d="M6 11C6 8.17157 6 6.75736 6.87868 5.87868C7.75736 5 9.17157 5 12 5H15C17.8284 5 19.2426 5 20.1213 5.87868C21 6.75736 21 8.17157 21 11V16C21 18.8284 21 20.2426 20.1213 21.1213C19.2426 22 17.8284 22 15 22H12C9.17157 22 7.75736 22 6.87868 21.1213C6 20.2426 6 18.8284 6 16V11Z"
@@ -73,173 +78,225 @@
         <!-- Release Form -->
         <div class="bg-white p-4 rounded-lg shadow">
             <h3 class="text-lg font-medium mb-4"
-                x-text="currentRelease.id ? 'Edit Release' : 'Create New Release'"></h3>
+                x-text="isEditing ? 'Edit Release' : 'Create New Release'"></h3>
 
-            <form @submit.prevent="generateSchedule(false)" class="space-y-6">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700">Target Platform</label>
-                    <div class="mt-1 relative">
-                        <select class="block w-full px-4 py-2 mt-1 text-base leading-tight text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:shadow-outline-blue focus:border-blue-300 sm:text-sm sm:leading-5"
-                                required
-                                x-model="currentSchedule.actionType"
-                                @input.debounce.300ms="updateName(currentSchedule.actionType); backupValue('currentSchedule', resolveCurrentSchedule)">
-                            <option disabled value="">Select a platform</option>
-                            <template :key="actionType" x-for="actionType in actionTypes">
-                                <option :value="actionType" x-text="formatActionTypeName(actionType)">Action Type</option>
-                            </template>
-                        </select>
-                    </div>
-                    <small class="mt-2 text-sm text-gray-300 opacity-75 italic">Type of handler for release.</small>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-gray-700" for="startDate">Name</label>
-                    <input class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2" id="name" type="text"
-                           x-model="currentSchedule.name"
-                           @input.debounce.300ms="backupValue('currentSchedule', resolveCurrentSchedule)">
-                    <small class="mt-2 text-sm text-gray-300 opacity-75 italic">Name of system for release.</small>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-gray-700" for="startDate">Start Date</label>
-                    <input class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2" id="startDate" type="date"
-                           x-model="currentSchedule.startDate"
-                           @input.debounce.300ms="backupValue('currentSchedule', resolveCurrentSchedule)">
-                    <small class="mt-2 text-sm text-gray-300 opacity-75 italic">Date of first release.</small>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-gray-700" for="amountOfChapters">Amount of
-                        Chapters</label>
-                    <input class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2" id="amountOfChapters" min="1"
-                           required
-                           type="number" x-model.number="currentSchedule.amountOfChapters">
-                    <small class="mt-2 text-sm text-gray-300 opacity-75"><span
-                            class="italic">Book's chapters count.</span> </small>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-gray-700" for="dayThreshold">Day Threshold</label>
-                    <input class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2" id="dayThreshold" type="number"
-                           x-model.number="currentSchedule.dayThreshold"
-                           @input.debounce.300ms="backupValue('currentSchedule', resolveCurrentSchedule)">
-                    <small class="mt-2 text-sm text-gray-300 opacity-75 italic">Gap between releases in days.</small>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-gray-700" for="startBulk">Start Bulk</label>
-                    <input class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2" id="startBulk" max="1" min="0" step="0.1"
-                           type="number"
-                           x-model.number="currentSchedule.startBulk"
-                           @input.debounce.300ms="backupValue('currentSchedule', resolveCurrentSchedule)">
-                    <small class="mt-2 text-sm text-gray-300 opacity-75 italic">First release amount(<span
-                            x-text="Math.round(currentSchedule.startBulk * (currentSchedule.amountOfChapters || 1))"></span>).</small>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-gray-700" for="endBulk">End Bulk</label>
-                    <input class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2" id="endBulk" max="1" min="0" step="0.1"
-                           type="number"
-                           x-model.number="currentSchedule.endBulk"
-                           @input.debounce.300ms="backupValue('currentSchedule', resolveCurrentSchedule)">
-                    <small class="mt-2 text-sm text-gray-300 opacity-75 italic">Last release amount(<span
-                            x-text="Math.round(currentSchedule.endBulk * (currentSchedule.amountOfChapters || 1))"></span>).</small>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-gray-700" for="minChapters">Min Chapters</label>
-                    <input class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2" id="minChapters" type="number"
-                           x-model.number="currentSchedule.minChapters"
-                           @input.debounce.300ms="backupValue('currentSchedule', resolveCurrentSchedule)">
-                    <small class="mt-2 text-sm text-gray-300 opacity-75 italic">Min amount of chapters for
-                        release.</small>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-gray-700" for="maxChapters">Max Chapters</label>
-                    <input class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2" id="maxChapters" type="number"
-                           x-model.number="currentSchedule.maxChapters"
-                           @input.debounce.300ms="backupValue('currentSchedule', resolveCurrentSchedule)">
-                    <small class="mt-2 text-sm text-gray-300 opacity-75 italic">Max amount of chapters for
-                        release.</small>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-gray-700" for="peakWidth">Peak Width</label>
-                    <input class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2" id="peakWidth" max="1" min="0" step="0.1"
-                           type="number"
-                           x-model.number="currentSchedule.peakWidth"
-                           @input.debounce.300ms="backupValue('currentSchedule', resolveCurrentSchedule)">
-                    <small class="mt-2 text-sm text-gray-300 opacity-75 italic">Duration of 'wave/peak' period.</small>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-gray-700" for="smoothFactor">Smooth Factor</label>
-                    <input class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2" id="smoothFactor" max="1" min="0"
-                           step="0.1" type="number"
-                           x-model.number="currentSchedule.smoothFactor"
-                           @input.debounce.300ms="backupValue('currentSchedule', resolveCurrentSchedule)">
-                    <small class="mt-2 text-sm text-gray-300 opacity-75 italic">Threshold for shuffling schedule
-                        draft.</small>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-gray-700" for="randomFactor">Random Factor</label>
-                    <input class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2" id="randomFactor" max="1" min="0"
-                           step="0.1" type="number"
-                           x-model.number="currentSchedule.randomFactor"
-                           @input.debounce.300ms="backupValue('currentSchedule', resolveCurrentSchedule)">
-                    <small class="mt-2 text-sm text-gray-300 opacity-75 italic">Threshold for shuffling schedule
-                        draft.</small>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-gray-700" for="periodCount">Period Count</label>
-                    <input class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2" id="periodCount" step="0.1" type="number"
-                           x-model.number="currentSchedule.periodCount"
-                           @input.debounce.300ms="backupValue('currentSchedule', resolveCurrentSchedule)">
-                    <small class="mt-2 text-sm text-gray-300 opacity-75 italic">Amount of 'waves/peaks'.</small>
-                </div>
-
-                <hr class="h-px my-8 bg-gray-200 border-0 dark:bg-gray-700">
-
-                <template x-if="currentSchedule.actionType == 'TELEGRAM'">
+            <template x-if="!isEditing">
+                <form @submit.prevent="generateSchedule(false)" class="space-y-6">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700" for="periodCount">Chat type</label>
-                        <select class="block w-full px-4 py-2 mt-1 text-base leading-tight text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:shadow-outline-blue focus:border-blue-300 sm:text-sm sm:leading-5"
-                                required
-                                x-model="currentSchedule.metadata['chatType']"
-                                @input.debounce.300ms="backupValue('currentSchedule', resolveCurrentSchedule)">
-                            <option disabled value="">Select a release type</option>
-                            <option value="MAIN">Main</option>
-                            <option value="TEST">Test</option>
-                        </select>
-
-                        <small class="mt-2 text-sm text-gray-300 opacity-75 italic">Specify the chat with which you will interact.</small>
+                        <label class="block text-sm font-medium text-gray-700">Target Platform</label>
+                        <div class="mt-1 relative">
+                            <select class="block w-full px-4 py-2 mt-1 text-base leading-tight text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:shadow-outline-blue focus:border-blue-300 sm:text-sm sm:leading-5"
+                                    required
+                                    x-model="currentSchedule.actionType"
+                                    @input.debounce.300ms="updateName(currentSchedule.actionType); backupValue('currentSchedule', resolveCurrentSchedule)">
+                                <option disabled value="">Select a platform</option>
+                                <template :key="actionType" x-for="actionType in actionTypes">
+                                    <option :value="actionType" x-text="formatActionTypeName(actionType)">Action Type</option>
+                                </template>
+                            </select>
+                        </div>
+                        <small class="mt-2 text-sm text-gray-300 opacity-75 italic">Type of handler for release.</small>
                     </div>
-                </template>
 
-                <template x-if="currentSchedule.actionType == 'WEBSITE'">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700" for="periodCount">Website Url</label>
-                        <input class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2" id="websiteUrl" type="url"
-                               x-model="currentSchedule.metadata['siteUrl']"
+                        <label class="block text-sm font-medium text-gray-700" for="startDate">Name</label>
+                        <input class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2" id="name" type="text"
+                               x-model="currentSchedule.name"
                                @input.debounce.300ms="backupValue('currentSchedule', resolveCurrentSchedule)">
-                        <small class="mt-2 text-sm text-gray-300 opacity-75 italic">Address of Website.</small>
+                        <small class="mt-2 text-sm text-gray-300 opacity-75 italic">Name of system for release.</small>
                     </div>
-                </template>
 
-                <div class="flex justify-end space-x-3 pt-5">
-                    <button @click.prevent="isReleaseFormOpen = !isReleaseFormOpen" class="rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
-                            type="button">
-                        Cancel
-                    </button>
-                    <button class="inline-flex justify-center rounded-md border border-transparent bg-blue-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
-                            type="submit">
-                        <span x-text="(previewReleases?.length > 0) ? 'Save preview' : 'Save'"></span>
-                    </button>
-                </div>
-            </form>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700" for="startDate">Start Date</label>
+                        <input class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2" id="startDate" type="date"
+                               x-model="currentSchedule.startDate"
+                               @input.debounce.300ms="backupValue('currentSchedule', resolveCurrentSchedule)">
+                        <small class="mt-2 text-sm text-gray-300 opacity-75 italic">Date of first release.</small>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700" for="amountOfChapters">Amount of
+                            Chapters</label>
+                        <input class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2" id="amountOfChapters" min="1"
+                               required
+                               type="number" x-model.number="currentSchedule.amountOfChapters">
+                        <small class="mt-2 text-sm text-gray-300 opacity-75"><span
+                                class="italic">Book's chapters count.</span> </small>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700" for="dayThreshold">Day Threshold</label>
+                        <input class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2" id="dayThreshold" type="number"
+                               x-model.number="currentSchedule.dayThreshold"
+                               @input.debounce.300ms="backupValue('currentSchedule', resolveCurrentSchedule)">
+                        <small class="mt-2 text-sm text-gray-300 opacity-75 italic">Gap between releases in days.</small>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700" for="startBulk">Start Bulk</label>
+                        <input class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2" id="startBulk" max="1" min="0" step="0.1"
+                               type="number"
+                               x-model.number="currentSchedule.startBulk"
+                               @input.debounce.300ms="backupValue('currentSchedule', resolveCurrentSchedule)">
+                        <small class="mt-2 text-sm text-gray-300 opacity-75 italic">First release amount(<span
+                                x-text="Math.round(currentSchedule.startBulk * (currentSchedule.amountOfChapters || 1))"></span>).</small>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700" for="endBulk">End Bulk</label>
+                        <input class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2" id="endBulk" max="1" min="0" step="0.1"
+                               type="number"
+                               x-model.number="currentSchedule.endBulk"
+                               @input.debounce.300ms="backupValue('currentSchedule', resolveCurrentSchedule)">
+                        <small class="mt-2 text-sm text-gray-300 opacity-75 italic">Last release amount(<span
+                                x-text="Math.round(currentSchedule.endBulk * (currentSchedule.amountOfChapters || 1))"></span>).</small>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700" for="minChapters">Min Chapters</label>
+                        <input class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2" id="minChapters" type="number"
+                               x-model.number="currentSchedule.minChapters"
+                               @input.debounce.300ms="backupValue('currentSchedule', resolveCurrentSchedule)">
+                        <small class="mt-2 text-sm text-gray-300 opacity-75 italic">Min amount of chapters for
+                            release.</small>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700" for="maxChapters">Max Chapters</label>
+                        <input class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2" id="maxChapters" type="number"
+                               x-model.number="currentSchedule.maxChapters"
+                               @input.debounce.300ms="backupValue('currentSchedule', resolveCurrentSchedule)">
+                        <small class="mt-2 text-sm text-gray-300 opacity-75 italic">Max amount of chapters for
+                            release.</small>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700" for="peakWidth">Peak Width</label>
+                        <input class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2" id="peakWidth" max="1" min="0" step="0.1"
+                               type="number"
+                               x-model.number="currentSchedule.peakWidth"
+                               @input.debounce.300ms="backupValue('currentSchedule', resolveCurrentSchedule)">
+                        <small class="mt-2 text-sm text-gray-300 opacity-75 italic">Duration of 'wave/peak' period.</small>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700" for="smoothFactor">Smooth Factor</label>
+                        <input class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2" id="smoothFactor" max="1" min="0"
+                               step="0.1" type="number"
+                               x-model.number="currentSchedule.smoothFactor"
+                               @input.debounce.300ms="backupValue('currentSchedule', resolveCurrentSchedule)">
+                        <small class="mt-2 text-sm text-gray-300 opacity-75 italic">Threshold for shuffling schedule
+                            draft.</small>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700" for="randomFactor">Random Factor</label>
+                        <input class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2" id="randomFactor" max="1" min="0"
+                               step="0.1" type="number"
+                               x-model.number="currentSchedule.randomFactor"
+                               @input.debounce.300ms="backupValue('currentSchedule', resolveCurrentSchedule)">
+                        <small class="mt-2 text-sm text-gray-300 opacity-75 italic">Threshold for shuffling schedule
+                            draft.</small>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700" for="periodCount">Period Count</label>
+                        <input class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2" id="periodCount" step="0.1" type="number"
+                               x-model.number="currentSchedule.periodCount"
+                               @input.debounce.300ms="backupValue('currentSchedule', resolveCurrentSchedule)">
+                        <small class="mt-2 text-sm text-gray-300 opacity-75 italic">Amount of 'waves/peaks'.</small>
+                    </div>
+
+                    <hr class="h-px my-8 bg-gray-200 border-0 dark:bg-gray-700">
+
+                    <template x-if="currentSchedule.actionType == 'TELEGRAM'">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700" for="periodCount">Chat type</label>
+                            <select class="block w-full px-4 py-2 mt-1 text-base leading-tight text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:shadow-outline-blue focus:border-blue-300 sm:text-sm sm:leading-5"
+                                    required
+                                    x-model="currentSchedule.metadata['chatType']"
+                                    @input.debounce.300ms="backupValue('currentSchedule', resolveCurrentSchedule)">
+                                <option disabled value="">Select a release type</option>
+                                <option value="MAIN">Main</option>
+                                <option value="TEST">Test</option>
+                            </select>
+
+                            <small class="mt-2 text-sm text-gray-300 opacity-75 italic">Specify the chat with which you will interact.</small>
+                        </div>
+                    </template>
+
+                    <template x-if="currentSchedule.actionType == 'WEBSITE'">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700" for="periodCount">Website Url</label>
+                            <input class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2" id="websiteUrl" type="url"
+                                   x-model="currentSchedule.metadata['siteUrl']"
+                                   @input.debounce.300ms="backupValue('currentSchedule', resolveCurrentSchedule)">
+                            <small class="mt-2 text-sm text-gray-300 opacity-75 italic">Address of Website.</small>
+                        </div>
+                    </template>
+
+                    <div class="flex justify-end space-x-3 pt-5">
+                        <button @click.prevent="isReleaseFormOpen = !isReleaseFormOpen; isEditing = false; editingTargetId = null" class="rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+                                type="button">
+                            Cancel
+                        </button>
+                        <button class="inline-flex justify-center rounded-md border border-transparent bg-blue-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
+                                type="submit">
+                            <span x-text="(previewReleases?.length > 0) ? 'Save preview' : 'Save'"></span>
+                        </button>
+                    </div>
+                </form>
+            </template>
+            <template x-if="isEditing">
+                <form @submit.prevent="saveTarget()" class="space-y-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Target Platform</label>
+                        <div class="mt-1 relative">
+                            <span class="block w-full px-4 py-2 mt-1 text-base leading-tight text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:shadow-outline-blue focus:border-blue-300 sm:text-sm sm:leading-5"
+                                  x-text="currentSchedule.actionType"></span>
+                        </div>
+                        <small class="mt-2 text-sm text-gray-300 opacity-75 italic">Type of handler for release.</small>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700" for="startDate">Name</label>
+                        <span class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2" id="name" type="text"
+                               x-text="currentSchedule.name"></span>
+                        <small class="mt-2 text-sm text-gray-300 opacity-75 italic">Name of system for release.</small>
+                    </div>
+
+                    <hr class="h-px my-8 bg-gray-200 border-0 dark:bg-gray-700">
+
+                    <template x-if="currentSchedule.actionType == 'TELEGRAM'">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700" for="periodCount">Chat type</label>
+                            <span class="block w-full px-4 py-2 mt-1 text-base leading-tight text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:shadow-outline-blue focus:border-blue-300 sm:text-sm sm:leading-5"
+                                  x-text="currentSchedule.metadata['chatType']"></span>
+                            <small class="mt-2 text-sm text-gray-300 opacity-75 italic">Specify the chat with which you will interact.</small>
+                        </div>
+                    </template>
+
+                    <template x-if="currentSchedule.actionType == 'WEBSITE'">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700" for="periodCount">Website Url</label>
+                            <span class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2" id="websiteUrl" type="url"
+                                   x-model="currentSchedule.metadata['siteUrl']"></span>
+                            <small class="mt-2 text-sm text-gray-300 opacity-75 italic">Address of Website.</small>
+                        </div>
+                    </template>
+
+                    <div class="flex justify-end space-x-3 pt-5">
+                        <button @click.prevent="closeReleaseForm()" class="rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+                                type="button">
+                            Cancel
+                        </button>
+                        <button class="inline-flex justify-center rounded-md border border-transparent bg-blue-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
+                                type="submit">
+                            <span>Update</span>
+                        </button>
+                    </div>
+                </form>
+            </template>
         </div>
         </template>
     </div>

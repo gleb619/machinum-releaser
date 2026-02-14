@@ -34,6 +34,8 @@ export function releaseApp() {
     },
     previewReleases: [],
     actionTypes: [],
+    isEditing: false,
+    editingTargetId: null,
 
     initRelease() {
         this.loadValue('currentSchedule', this.currentSchedule);
@@ -76,11 +78,25 @@ export function releaseApp() {
         if(this.currentSchedule.amountOfChapters <= 1) {
             this.currentSchedule.amountOfChapters = this.releases.length > 0 ? this.releases[0].chaptersCount : 0;
         }
+        this.isEditing = false;
+        this.editingTargetId = null;
         this.isReleaseFormOpen = true;
     },
 
-    editRelease(release) {
-        this.currentRelease = { ...release };
+    async editReleaseTargets(release) {
+        this.currentSchedule = await this.fetchReleaseTarget(release.id);
+        this.editingTargetId = release.id;
+
+        const releases = await this.fetchTargetReleases(release.id);
+        this.previewReleases = releases;
+        this.openReleaseCreateForm();
+
+        if(!previewChart) {
+            this.createPreviewChart();
+        }
+        this.previewUpdateChart();
+
+        this.isEditing = true;
         this.isReleaseFormOpen = true;
     },
 
@@ -106,6 +122,20 @@ export function releaseApp() {
             this.createPreviewChart();
         }
         this.previewUpdateChart();
+    },
+
+    async fetchReleaseTarget(releaseTargetId) {
+        try {
+            const response = await fetch(`/api/release-targets/${releaseTargetId}`);
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching the data:', error);
+            this.showToast('Error loading action types: ' + error.message, true);
+        }
     },
 
     async fetchTargetReleases(releaseTargetId) {
@@ -178,6 +208,41 @@ export function releaseApp() {
         .catch(error => {
             this.showToast('Error: ' + error.message, true);
         });
+    },
+
+    saveTarget() {
+        fetch(`/api/release-targets/${this.editingTargetId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(this.currentSchedule)
+        })
+        .then(response => {
+            if (response.ok) {
+                this.showToast('Target updated successfully');
+                this.isReleaseFormOpen = false;
+                this.isEditing = false;
+                this.editingTargetId = null;
+                this.fetchReleases(this.selectedBook.id);
+                this.afterReleasesChanged();
+            } else {
+                throw new Error('Failed to update target');
+            }
+        })
+        .catch(error => {
+            this.showToast('Error: ' + error.message, true);
+        });
+    },
+
+    closeReleaseForm() {
+        this.isReleaseFormOpen = !this.isReleaseFormOpen;
+        this.isEditing = false;
+        this.editingTargetId = null;
+    },
+
+    closeDrawer() {
+        this.drawerOpen = false;
     },
 
     formatDate(dateString) {
@@ -301,17 +366,21 @@ export function releaseApp() {
         this.$nextTick(() => {
             setTimeout(() => {
                 if(!previewChart) return;
+                try {
+                    const sortedReleases = JSON.parse(JSON.stringify(this.previewReleases))
+                        .filter(r => r.date)
+                        .sort((a, b) => new Date(a.date) - new Date(b.date));
 
-                const sortedReleases = [...this.previewReleases]
-                    .filter(r => r.date)
-                    .sort((a, b) => new Date(a.date) - new Date(b.date));
+                    previewChart.data.labels = sortedReleases.map(r =>
+                        new Date(r.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                    );
+                    previewChart.data.datasets[0].data = sortedReleases.map(r => r.chapters || 0);
 
-                previewChart.data.labels = sortedReleases.map(r =>
-                    new Date(r.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-                );
-                previewChart.data.datasets[0].data = sortedReleases.map(r => r.chapters || 0);
-
-                previewChart.update();
+                    previewChart.update();
+                } catch(e) {
+                    console.error('Error draw chart:', e);
+                    this.showToast('Error draw chart: ' + (e.message || e.code || e.description || 'unknown'), true);
+                }
             }, 100);
         });
     },

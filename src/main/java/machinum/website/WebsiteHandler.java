@@ -1,5 +1,19 @@
 package machinum.website;
 
+import static machinum.release.Release.ReleaseConstants.SITE_PORT_PARAM;
+import static machinum.release.Release.ReleaseConstants.SITE_URL_PARAM;
+import static machinum.release.Release.ReleaseStatus.MANUAL_ACTION_REQUIRED;
+import static machinum.util.Util.md5;
+import static machinum.website.WebsiteHandler.NumberAllocator.allocator;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.IntStream;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.Synchronized;
@@ -7,7 +21,6 @@ import lombok.extern.slf4j.Slf4j;
 import machinum.book.BookRestClient;
 import machinum.chapter.Chapter;
 import machinum.exception.AppException;
-import machinum.scheduler.ActionHandler.ActionContext;
 import machinum.machinimaserver.BookApiExporter.CheckResponse;
 import machinum.machinimaserver.MachinimaServer;
 import machinum.machinimaserver.MachinimaServer.Context;
@@ -19,21 +32,6 @@ import machinum.release.ReleaseRepository;
 import machinum.scheduler.ActionHandler;
 import machinum.util.Pair;
 import machinum.util.Util;
-
-import java.sql.Time;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.IntStream;
-
-import static machinum.release.Release.ReleaseConstants.*;
-import static machinum.release.Release.ReleaseStatus.MANUAL_ACTION_REQUIRED;
-import static machinum.util.Util.md5;
-import static machinum.website.WebsiteHandler.NumberAllocator.allocator;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -52,7 +50,7 @@ public class WebsiteHandler implements ActionHandler, AutoCloseable {
         var book = context.getBook();
         var target = context.getReleaseTarget();
         var siteUrl = (String) target.metadata(SITE_URL_PARAM);
-        var sitePort = (Integer) target.metadata(SITE_PORT_PARAM, 8080);
+        var sitePort = target.metadata(SITE_PORT_PARAM, 8080);
 
         log.info("Starting chapter release for website: title={}, site={}", book.getRuName(), siteUrl);
         var release = context.getRelease();
@@ -249,9 +247,7 @@ public class WebsiteHandler implements ActionHandler, AutoCloseable {
     private List<Chapter> getChapters(ActionContext context, int from, int to) {
         if (context.get(HAS_JSONL_CHAPTERS_KEYWORD) != null && (Boolean) context.get(HAS_JSONL_CHAPTERS_KEYWORD)) {
             @SuppressWarnings("unchecked")
-            List<Chapter> allChapters = (List<Chapter>) context.get(CHAPTERS_KEYWORD);
-            // Assuming chapters are 0-indexed or 1-indexed, adjust accordingly
-            // If from=1, to=5, get indices 0 to 4 (assuming 1-based)
+            List<Chapter> allChapters = context.get(CHAPTERS_KEYWORD);
             int startIndex = from; // assuming 1-based
             int endIndex = to;
             if (startIndex < 0) startIndex = 0;

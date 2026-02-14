@@ -21,6 +21,7 @@
                 <!-- Controls -->
                 <div class="flex gap-4 items-center">
                     <button @click="generateSchedule(true)"
+                            x-show="!isEditing"
                             class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
                         Generate Preview
                     </button>

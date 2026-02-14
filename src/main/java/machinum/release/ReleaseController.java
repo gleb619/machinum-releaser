@@ -1,27 +1,33 @@
 package machinum.release;
 
+import static machinum.release.Release.ReleaseStatus.DRAFT;
+import static machinum.release.Release.ReleaseStatus.EXECUTED;
+
 import io.avaje.validation.Validator;
 import io.jooby.Context;
 import io.jooby.Jooby;
-import io.jooby.MediaType;
 import io.jooby.StatusCode;
-import io.jooby.annotation.*;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import machinum.exception.AppException;
-import machinum.release.Release.ReleaseView;
-import machinum.release.ReleaseRepository.ReleaseTargetRepository;
-import machinum.scheduler.ActionHandler;
-import machinum.scheduler.ActionHandler.ActionType;
-import machinum.scheduler.Scheduler;
-
+import io.jooby.annotation.DELETE;
+import io.jooby.annotation.GET;
+import io.jooby.annotation.PATCH;
+import io.jooby.annotation.POST;
+import io.jooby.annotation.PUT;
+import io.jooby.annotation.Path;
+import io.jooby.annotation.PathParam;
+import io.jooby.annotation.QueryParam;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
-
-import static machinum.release.Release.ReleaseStatus.DRAFT;
-import static machinum.release.Release.ReleaseStatus.EXECUTED;
+import java.util.Optional;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import machinum.exception.AppException;
+import machinum.release.Release.ReleaseTarget;
+import machinum.release.Release.ReleaseView;
+import machinum.release.ReleaseRepository.ReleaseTargetRepository;
+import machinum.scheduler.ActionHandler.ActionType;
+import machinum.scheduler.Scheduler;
 
 @Slf4j
 @Path("/api")
@@ -88,6 +94,19 @@ public class ReleaseController {
         return repository.findByTargetId(releaseTargetId);
     }
 
+    @GET("/release-targets/{releaseTargetId}")
+    public ReleaseTarget getReleaseTarget(@PathParam("releaseTargetId") String releaseTargetId, Context ctx) {
+        Optional<ReleaseTarget> result = targetRepository.findById(releaseTargetId);
+
+        result.ifPresentOrElse(releaseTarget -> {
+            ctx.setResponseCode(StatusCode.OK);
+        }, () -> {
+            ctx.setResponseCode(StatusCode.NOT_FOUND);
+        });
+
+        return result.orElse(null);
+    }
+
     @DELETE("/releases/{id}")
     public StatusCode deleteRelease(@PathParam("id") String id, Context ctx) {
         var result = targetRepository.delete(id);
@@ -116,6 +135,28 @@ public class ReleaseController {
         }).orElse(Boolean.FALSE);
 
         ctx.setResponseCode(result ? StatusCode.NO_CONTENT : StatusCode.NOT_FOUND);
+    }
+
+    @PUT("/releases/{id}")
+    public void updateRelease(@PathParam("id") String id, Context ctx, Release release) {
+        validator.validate(release);
+        var result = repository.findById(id).map(releaseFromDb -> {
+            releaseFromDb.setDate(release.getDate());
+            releaseFromDb.setChapters(release.getChapters());
+            releaseFromDb.status(release.status());
+            releaseFromDb.setMetadata(release.getMetadata());
+            releaseFromDb.setUpdatedAt(LocalDateTime.now());
+            return repository.update(releaseFromDb);
+        }).orElse(Boolean.FALSE);
+
+        ctx.setResponseCode(result ? StatusCode.NO_CONTENT : StatusCode.NOT_FOUND);
+    }
+
+    @PUT("/release-targets/{id}")
+    public void updateReleaseTarget(@PathParam("id") String id, Context ctx, ReleaseScheduleRequest request) {
+        validator.validate(request);
+        // TODO: Implement updating ReleaseTarget fields from request
+        ctx.setResponseCode(StatusCode.NOT_IMPLEMENTED);
     }
 
     @PATCH("/release-targets/{id}/{field}")

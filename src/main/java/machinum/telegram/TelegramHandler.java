@@ -1,9 +1,30 @@
 package machinum.telegram;
 
-import lombok.*;
+import static machinum.release.Release.ReleaseConstants.PAGES_PARAM;
+import static machinum.telegram.TelegramHandler.TelegramConstants.TELEGRAM_BOOK_ID;
+import static machinum.telegram.TelegramHandler.TelegramConstants.TELEGRAM_CHAPTER_ID;
+import static machinum.telegram.TelegramProperties.ChatType.of;
+import static machinum.util.ZipUtil.readZipFile;
+
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.regex.Pattern;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import machinum.audio.CoverArt;
 import machinum.audio.TTSRestClient.Metadata;
+import machinum.audio.TextXmlReader.TextInfo;
 import machinum.book.Book;
 import machinum.book.BookRestClient;
 import machinum.chapter.Chapter;
@@ -18,21 +39,7 @@ import machinum.release.ReleaseRepository;
 import machinum.scheduler.ActionHandler;
 import machinum.telegram.TelegramAudio.FileMetadata;
 import machinum.telegram.TelegramProperties.ChatType;
-import machinum.audio.TextXmlReader.TextInfo;
 import machinum.util.Pair;
-
-import java.nio.charset.StandardCharsets;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.util.*;
-import java.util.regex.Pattern;
-
-import static machinum.release.Release.ReleaseConstants.PAGES_PARAM;
-import static machinum.telegram.TelegramHandler.TelegramConstants.TELEGRAM_BOOK_ID;
-import static machinum.telegram.TelegramHandler.TelegramConstants.TELEGRAM_CHAPTER_ID;
-import static machinum.telegram.TelegramProperties.ChatType.TEST;
-import static machinum.telegram.TelegramProperties.ChatType.of;
-import static machinum.util.ZipUtil.readZipFile;
 
 /**
  * Instance is used for interacting with the telegram API for scheduled releases.
@@ -290,8 +297,6 @@ public class TelegramHandler implements ActionHandler {
         if (context.get(HAS_JSONL_CHAPTERS_KEYWORD) != null && (Boolean) context.get(HAS_JSONL_CHAPTERS_KEYWORD)) {
             @SuppressWarnings("unchecked")
             List<Chapter> allChapters = context.get(CHAPTERS_KEYWORD);
-            // Assuming chapters are 0-indexed or 1-indexed, adjust accordingly
-            // If from=1, to=5, get indices 0 to 4 (assuming 1-based)
             int startIndex = from; // assuming 1-based
             int endIndex = to;
             if (startIndex < 0) startIndex = 0;
