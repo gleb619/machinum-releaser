@@ -4,7 +4,7 @@
 <!-- Layout -->
 <div th:fragment="release" th:remove="tag">
     <div class="fixed inset-y-0 left-0 w-1/2 bg-white shadow-xl z-20 h-full pb-20"
-         x-show="currentSchedule.name"
+         x-show="currentSchedule.generationMode"
          x-transition:enter="transform transition ease-in-out duration-100"
          x-transition:enter-end="translate-x-0"
          x-transition:enter-start="translate-x-full"

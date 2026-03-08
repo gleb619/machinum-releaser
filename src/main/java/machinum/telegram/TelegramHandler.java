@@ -30,6 +30,7 @@ import machinum.book.BookRestClient;
 import machinum.chapter.Chapter;
 import machinum.exception.AppException;
 import machinum.image.ImageRepository;
+import machinum.image.ImageUtil;
 import machinum.image.cover.CoverService;
 import machinum.image.cover.CoverService.CoverInfo;
 import machinum.markdown.MarkdownConverter;
@@ -51,6 +52,8 @@ public class TelegramHandler implements ActionHandler {
     public static final String TELEGRAM_CHAT_TYPE = "chatType";
 
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+
+    public static final int MAX_SIZE = 3 * 1024 * 1024; // 3MB
 
     private final TelegramService telegramService;
     private final TelegramProperties telegramProperties;
@@ -109,7 +112,11 @@ public class TelegramHandler implements ActionHandler {
         var originImageId = context.getBook().getOriginImageId();
         var chatType = of(context.getReleaseTarget().getMetadata().getOrDefault(TELEGRAM_CHAT_TYPE, "test").toString());
         var chatId = telegramProperties.getChatId(chatType);
-        var images = imageRepository.findByIds(List.of(imageId, originImageId));
+        var images = imageRepository.findByIds(List.of(imageId, originImageId)).stream()
+                .map(image -> image.toBuilder()
+                        .data(ImageUtil.compressImage(image.getData(), MAX_SIZE))
+                        .build())
+                .toList();
         var response = telegramService.publishNewBook(chatId, context.getBook(), images);
         var tgBookId = response.messageId();
         context.set(TELEGRAM_BOOK_ID, tgBookId);
@@ -299,7 +306,7 @@ public class TelegramHandler implements ActionHandler {
             List<Chapter> allChapters = context.get(CHAPTERS_KEYWORD);
             int startIndex = from; // assuming 1-based
             int endIndex = to;
-            if (startIndex < 0) startIndex = 0;
+            if (startIndex <= 1) startIndex = 0; // for first release also take chapter 1 that has index 0
             if (endIndex >= allChapters.size()) endIndex = allChapters.size() - 1;
             return allChapters.subList(startIndex, endIndex + 1);
         } else {

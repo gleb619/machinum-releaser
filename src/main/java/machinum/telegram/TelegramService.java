@@ -1,18 +1,10 @@
 package machinum.telegram;
 
-import com.pengrad.telegrambot.model.request.ParseMode;
-import lombok.NonNull;
-import lombok.RequiredArgsConstructor;
-import lombok.SneakyThrows;
-import lombok.extern.slf4j.Slf4j;
-import machinum.book.Book;
-import machinum.exception.AppException;
-import machinum.image.Image;
-import machinum.telegram.TelegramAudio.FileMetadata;
-import machinum.telegram.TelegramClient.AudioRecord;
-import machinum.telegram.TelegramClient.Caption;
-import machinum.telegram.TelegramClient.Response;
+import static machinum.telegram.TelegramClient.Caption.escapeForMarkdownV2;
+import static machinum.telegram.TelegramClient.MPEG_CONTENT_TYPE;
+import static machinum.telegram.TelegramClient.TELEGRAM_LIMIT;
 
+import com.pengrad.telegrambot.model.request.ParseMode;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -25,14 +17,19 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
-
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
-
-import static machinum.telegram.TelegramClient.Caption.escapeForMarkdownV2;
-import static machinum.telegram.TelegramClient.MPEG_CONTENT_TYPE;
-import static machinum.telegram.TelegramClient.TELEGRAM_LIMIT;
-import static machinum.telegram.TelegramMessageDSL.dsl;
+import lombok.NonNull;
+import lombok.RequiredArgsConstructor;
+import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
+import machinum.book.Book;
+import machinum.exception.AppException;
+import machinum.image.Image;
+import machinum.telegram.TelegramAudio.FileMetadata;
+import machinum.telegram.TelegramClient.AudioRecord;
+import machinum.telegram.TelegramClient.Caption;
+import machinum.telegram.TelegramClient.Response;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -67,13 +64,16 @@ public class TelegramService {
         values.put("chapters", truncatedBook.getChapters().toString());
         values.put("author", truncatedBook.getAuthor());
         values.put("synopsis", truncatedBook.getDescription());
-//        values.put("synopsis", TelegramMessageDSL.formatTextForMarkdown(truncatedBook.getDescription()));
 
-        String message = engine.apply(values, template);
+        Map<String, String> values2 = new HashMap<>();
+        values.forEach((key, value) ->
+                values2.put(key, escapeForMarkdownV2(value)));
+
+        String message = engine.apply(values2, template);
 
         var messageCaption = Caption.builder()
                 .text(message)
-                .parseMode(ParseMode.Markdown)
+                .parseMode(ParseMode.MarkdownV2)
                 .build()
 //                .escapeForV2()
         ;
@@ -87,8 +87,10 @@ public class TelegramService {
                 .sum() + message.getBytes(StandardCharsets.UTF_8).length;
 
         //https://limits.tginfo.me/en, sendMediaGroupLimit is - up to 1,024 characters
-        log.info("Created message: size={} raw, size={} kb, caption={} chars, message={}...", "%,d".formatted(totalBytes),
-                (float) totalBytes / 1024, message.length(), message.replaceAll("\n", " ").substring(Math.max(message.length(), 50)));
+        log.info("Created message: size={} raw, size={} mb, caption={} chars, message={}...",
+            "%,d".formatted(totalBytes),
+            (float) (totalBytes / 1024), (double) message.length(),
+            message.replaceAll("\n", " ").substring(Math.max(message.length(), 50)));
 
         // Validate XML message before sending
         if(ParseMode.HTML == messageCaption.getParseMode()) {
@@ -331,11 +333,17 @@ public class TelegramService {
 
         // Highlight the error location from byteOffset
         if (errorCharPos < html.length()) {
-            result.append("Error location at byte offset ").append(byteOffset).append(" (char ").append(errorCharPos).append("):\n");
+            result.append("Error location at byte offset ")
+                .append(byteOffset)
+                .append(" (char ")
+                .append(errorCharPos)
+                .append("):\n");
             highlightError(html, errorCharPos, result);
         }
 
-        return result.toString().replaceAll("\n", " ");
+        return result.toString()
+                .replaceAll("\n", " ")
+                .replace("#NEW_LINE#", "\n");
     }
 
     private int byteOffsetToCharPosition(String html, int byteOffset) {
@@ -365,13 +373,16 @@ public class TelegramService {
         int end = Math.min(html.length(), errorPos + 30);
         String substr = html.substring(start, end);
         int relativePos = errorPos - start;
+
         if (relativePos >= 0 && relativePos < substr.length()) {
             String before = substr.substring(0, relativePos);
             String badChar = String.valueOf(substr.charAt(relativePos));
             String after = substr.substring(relativePos + 1);
-            result.append(before).append("|").append(badChar).append("|").append(after).append("\n");
+            result.append("#NEW_LINE#  ...").append(before)
+                .append("|").append(badChar).append("|")
+                .append(after).append("...\n").append("#NEW_LINE#");
         } else {
-            result.append(substr).append("\n");
+            result.append("#NEW_LINE#  ...").append(substr).append("#NEW_LINE#");
         }
     }
 

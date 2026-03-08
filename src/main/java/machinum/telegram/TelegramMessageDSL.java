@@ -1,18 +1,17 @@
 package machinum.telegram;
 
-import com.pengrad.telegrambot.model.request.ParseMode;
-import machinum.exception.AppException;
-import machinum.telegram.TelegramClient.Caption;
-import net.fellbaum.jemoji.Emoji;
-import net.fellbaum.jemoji.EmojiManager;
+import static machinum.telegram.TelegramHandler.NameUtil.toSnakeCase;
 
+import com.pengrad.telegrambot.model.request.ParseMode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
-
-import static machinum.telegram.TelegramHandler.NameUtil.*;
+import machinum.exception.AppException;
+import machinum.telegram.TelegramClient.Caption;
+import net.fellbaum.jemoji.Emoji;
+import net.fellbaum.jemoji.EmojiManager;
 
 public class TelegramMessageDSL {
 

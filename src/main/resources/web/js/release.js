@@ -18,10 +18,11 @@ export function releaseApp() {
     targetReleaseId: null,
     currentSchedule: {
         name: '',
-        actionType: 'OTHER',
+        actionType: 'TELEGRAM',
         startDate: new Date().toISOString().split('T')[0],
         dayThreshold: 4,
         amountOfChapters: 0,
+        generationMode: 'ANNUITY',
         startBulk: 0.1,
         endBulk: 0.1,
         minChapters: 10,
@@ -30,6 +31,8 @@ export function releaseApp() {
         smoothFactor: 0.2,
         randomFactor: 0.3,
         periodCount: 12.0,
+        startPercent: 10,
+        endPercent: 10,
         metadata: {}
     },
     previewReleases: [],
@@ -38,13 +41,63 @@ export function releaseApp() {
     editingTargetId: null,
 
     initRelease() {
-        this.loadValue('currentSchedule', this.currentSchedule);
+        //this.loadValue('currentSchedule', this.currentSchedule);
         this.fetchActionTypes();
     },
 
     get resolveCurrentSchedule() {
-        const {name, actionType, startDate, dayThreshold, startBulk, endBulk, minChapters, maxChapters, peakWidth, smoothFactor, randomFactor, periodCount, ...other} = this.currentSchedule;
-        return { name, actionType, startDate, dayThreshold, amountOfChapters: 0, startBulk, endBulk, minChapters, maxChapters, peakWidth, smoothFactor, randomFactor, periodCount, metadata: {} };
+        const {
+         name,
+         actionType,
+         startDate,
+         dayThreshold,
+         generationMode,
+         startBulk,
+         endBulk,
+         minChapters,
+         maxChapters,
+         peakWidth,
+         smoothFactor,
+         randomFactor,
+         periodCount,
+         startPercent,
+         endPercent,
+         ...other
+        } = this.currentSchedule;
+        
+        // Only include fields relevant to the current generation mode
+        if (generationMode === 'LEGACY') {
+            return { 
+                name, 
+                actionType, 
+                startDate, 
+                dayThreshold, 
+                generationMode,
+                amountOfChapters: 0, 
+                startBulk, 
+                endBulk, 
+                minChapters, 
+                maxChapters, 
+                peakWidth, 
+                smoothFactor, 
+                randomFactor, 
+                periodCount,
+                metadata: {} 
+            };
+        } else {
+            return { 
+                name, 
+                actionType, 
+                startDate, 
+                dayThreshold, 
+                generationMode,
+                amountOfChapters: 0, 
+                minChapters, 
+                startPercent,
+                endPercent,
+                metadata: {} 
+            };
+        }
     },
 
     releaseBook(book) {
@@ -523,6 +576,10 @@ export function releaseApp() {
         } else {
             release.status = 'DRAFT';
         }
+    },
+
+    isLegacyMode() {
+      return this.currentSchedule?.generationMode === 'LEGACY';
     },
 
   };

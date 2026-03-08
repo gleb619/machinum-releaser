@@ -3,6 +3,7 @@ package machinum.release;
 import static machinum.release.Release.ReleaseStatus.DRAFT;
 import static machinum.release.Release.ReleaseStatus.EXECUTED;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.avaje.validation.Validator;
 import io.jooby.Context;
 import io.jooby.Jooby;
@@ -39,13 +40,14 @@ public class ReleaseController {
     private final Validator validator;
     private final ReleaseScheduleGenerator generator;
     private final Scheduler scheduler;
+    private final ObjectMapper objectMapper;
 
     @POST("/books/{bookId}/generate-release")
     public void generateRelease(@PathParam("bookId") String bookId,
                                 @QueryParam("preview") Boolean preview,
                                 Context ctx,
                                 ScheduleRequest scheduleRequest) {
-        var settings = scheduleRequest.settings();
+        var settings = scheduleRequest.migrate(objectMapper);
         validator.validate(settings);
 
         if(Boolean.TRUE.equals(preview)) {
@@ -154,7 +156,7 @@ public class ReleaseController {
 
     @PUT("/release-targets/{id}")
     public void updateReleaseTarget(@PathParam("id") String id, Context ctx, ReleaseScheduleRequest request) {
-        validator.validate(request);
+        validator.validate(request.migrate(objectMapper));
         // TODO: Implement updating ReleaseTarget fields from request
         ctx.setResponseCode(StatusCode.NOT_IMPLEMENTED);
     }
@@ -184,9 +186,17 @@ public class ReleaseController {
                 jooby.require(ReleaseTargetRepository.class),
                 jooby.require(Validator.class),
                 jooby.require(ReleaseScheduleGenerator.class),
-                jooby.require(Scheduler.class));
+                jooby.require(Scheduler.class),
+                jooby.require(ObjectMapper.class)
+        );
     }
 
-    public record ScheduleRequest(ReleaseScheduleRequest settings, List<Release> releases) {}
+    public record ScheduleRequest(ReleaseScheduleRequest settings, List<Release> releases) {
+
+        public ReleaseScheduleRequest migrate(ObjectMapper objectMapper) {
+            return settings.migrate(objectMapper);
+        }
+
+    }
 
 }

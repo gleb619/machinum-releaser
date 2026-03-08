@@ -1,15 +1,14 @@
 package machinum.release;
 
-import lombok.extern.slf4j.Slf4j;
-import machinum.release.Release.ReleaseTarget;
+import static machinum.release.Release.ReleaseConstants.PAGES_PARAM;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-
-import static machinum.release.Release.ReleaseConstants.PAGES_PARAM;
+import lombok.extern.slf4j.Slf4j;
+import machinum.release.Release.ReleaseTarget;
 
 @Slf4j
 public class ReleaseScheduleGenerator {
@@ -25,19 +24,37 @@ public class ReleaseScheduleGenerator {
     }
 
     public List<Release> generate(String targetId, ReleaseScheduleRequest settings) {
-        log.info("Got request to create schedule: date={}, name={}", LocalDateTime.now(), settings.getName());
-        var rawSchedule = generateSchedule(settings);
+        log.info("Got request to create schedule: date={}, name={}, mode={}", 
+                LocalDateTime.now(), settings.getName(), settings.getGenerationMode());
+        
+        List<Release> rawSchedule = switch (settings.getModeConfig()) {
+            case AnnuityModeConfig annuity -> generateAnnuitySchedule(settings);
+            case LegacyModeConfig legacy -> generateLegacySchedule(settings);
+            default -> throw new IllegalArgumentException("Unknown type of config: " + settings.getModeConfig().getClass());
+        };
 
-        return rebalance(rawSchedule, settings.getSmoothFactor()).stream()
+        return rebalance(rawSchedule, settings.getModeConfig().getSmoothFactor()).stream()
                 .peek(r -> r.setReleaseTargetId(targetId))
                 .collect(Collectors.toList());
     }
 
     public List<Release> generateSchedule(ReleaseScheduleRequest settings) {
+        return switch (settings.getModeConfig()) {
+            case AnnuityModeConfig annuity -> generateAnnuitySchedule(settings);
+            case LegacyModeConfig legacy -> generateLegacySchedule(settings);
+            default -> throw new IllegalArgumentException("Unknown type of config: " + settings.getModeConfig().getClass());
+        };
+    }
+
+    /**
+     * Legacy implementation that generates schedules using wave/peak patterns
+     * with configurable bulk factors, smooth factors, and randomization.
+     */
+    private List<Release> generateLegacySchedule(ReleaseScheduleRequest settings) {
         List<Release> schedule = new ArrayList<>();
-        double amplitude = (settings.getMaxChapters() - settings.getMinChapters()) / 2.0;
-        double offset = (settings.getMaxChapters() + settings.getMinChapters()) / 2.0;
-        int amount = settings.getAmountOfChapters() - settings.getStart() - settings.getEnd();
+        double amplitude = (settings.getMaximal() - settings.getMinimal()) / 2.0;
+        double offset = (settings.getMaximal() + settings.getMinimal()) / 2.0;
+        int amount = settings.getModeConfig().getAmountOfChapters() - settings.getStart() - settings.getEnd();
         var initialDate = settings.getStartDate();
 
         int startValue = settings.getStart();
@@ -50,10 +67,10 @@ public class ReleaseScheduleGenerator {
 
         for (int i = 0; i < amount; ) {
             double progress = (double) i / amount;
-            double adjustedProgress = Math.pow(progress, 1 / settings.getPeakWidth());
+            double adjustedProgress = Math.pow(progress, 1 / settings.getModeConfig().getPeakWidth());
             int chapters = (int) (Math.round(amplitude * Math.cos(settings.getPeriods() * 2 * Math.PI * adjustedProgress) + offset)
-                    + randomize(settings.getRandomFactor()));
-            chapters = Math.max(settings.getMinChapters(), Math.min(chapters, Math.min(settings.getMaxChapters(), amount - i)));
+                    + randomize(settings.getModeConfig().getRandomFactor()));
+            chapters = Math.max(settings.getMinimal(), Math.min(chapters, Math.min(settings.getMaximal(), amount - i)));
             initialDate = initialDate.plusDays(settings.getDayThreshold());
             schedule.add(Release.builder()
                     .date(initialDate)
@@ -68,13 +85,76 @@ public class ReleaseScheduleGenerator {
                 .mapToInt(Release::getChapters)
                 .sum();
 
-        int lastValue = settings.getAmountOfChapters() - totalChapters;
+        int lastValue = settings.getModeConfig().getAmountOfChapters() - totalChapters;
         schedule.add(Release.builder()
                 .date(initialDate.plusDays(settings.getDayThreshold()))
                 .chapters(lastValue)
                 .build()
                 .addMetadata(PAGES_PARAM, totalChapters + "-" + (totalChapters + lastValue))
         );
+
+        return schedule;
+    }
+
+    /**
+     * Annuity-style generation that splits chapters into equal chunks.
+     * Allows control over start/end percentages and minimum chapters per chunk.
+     */
+    private List<Release> generateAnnuitySchedule(ReleaseScheduleRequest settings) {
+        List<Release> schedule = new ArrayList<>();
+        int totalChapters = settings.getModeConfig().getAmountOfChapters();
+        int startChapters = settings.getStart();
+        int endChapters = settings.getEnd();
+        int middleChapters = totalChapters - startChapters - endChapters;
+        
+        var initialDate = settings.getStartDate();
+
+        // Add start chunk
+        if (startChapters > 0) {
+            schedule.add(Release.builder()
+                    .date(initialDate)
+                    .chapters(startChapters)
+                    .build()
+                    .addMetadata(PAGES_PARAM, "1-" + startChapters)
+            );
+        }
+
+        // Calculate equal chunks for the middle portion
+        if (middleChapters > 0) {
+            // Determine number of chunks based on min chapters constraint
+            int maxChunks = middleChapters / settings.getMinChapters();
+            int chunks = Math.max(1, maxChunks);
+            
+            int chunkSize = middleChapters / chunks;
+            int remainder = middleChapters % chunks;
+
+            int currentChapter = startChapters + 1;
+            
+            for (int i = 0; i < chunks; i++) {
+                int chunkChapters = chunkSize + (i < remainder ? 1 : 0);
+                initialDate = initialDate.plusDays(settings.getDayThreshold());
+                
+                schedule.add(Release.builder()
+                        .date(initialDate)
+                        .chapters(chunkChapters)
+                        .build()
+                        .addMetadata(PAGES_PARAM, currentChapter + "-" + (currentChapter + chunkChapters - 1))
+                );
+                
+                currentChapter += chunkChapters;
+            }
+        }
+
+        // Add end chunk
+        if (endChapters > 0) {
+            initialDate = initialDate.plusDays(settings.getDayThreshold());
+            schedule.add(Release.builder()
+                    .date(initialDate)
+                    .chapters(endChapters)
+                    .build()
+                    .addMetadata(PAGES_PARAM, (totalChapters - endChapters + 1) + "-" + totalChapters)
+            );
+        }
 
         return schedule;
     }

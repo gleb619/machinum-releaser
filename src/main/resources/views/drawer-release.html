@@ -83,6 +83,19 @@
             <template x-if="!isEditing">
                 <form @submit.prevent="generateSchedule(false)" class="space-y-6">
                     <div>
+                        <label class="block text-sm font-medium text-gray-700">Generation Mode</label>
+                        <div class="mt-1 relative">
+                            <select class="block w-full px-4 py-2 mt-1 text-base leading-tight text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:shadow-outline-blue focus:border-blue-300 sm:text-sm sm:leading-5"
+                                    x-model="currentSchedule.generationMode"
+                                    @input.debounce.300ms="backupValue('currentSchedule', resolveCurrentSchedule)">
+                                <option value="LEGACY">Legacy (Wave/Peak Pattern)</option>
+                                <option value="ANNUITY">Annuity (Equal Chunks)</option>
+                            </select>
+                        </div>
+                        <small class="mt-2 text-sm text-gray-300 opacity-75 italic">Choose generation mode: Legacy uses wave/peak patterns, Annuity uses equal chunks.</small>
+                    </div>
+
+                    <div>
                         <label class="block text-sm font-medium text-gray-700">Target Platform</label>
                         <div class="mt-1 relative">
                             <select class="block w-full px-4 py-2 mt-1 text-base leading-tight text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:shadow-outline-blue focus:border-blue-300 sm:text-sm sm:leading-5"
@@ -132,26 +145,77 @@
                         <small class="mt-2 text-sm text-gray-300 opacity-75 italic">Gap between releases in days.</small>
                     </div>
 
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700" for="startBulk">Start Bulk</label>
-                        <input class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2" id="startBulk" max="1" min="0" step="0.1"
-                               type="number"
-                               x-model.number="currentSchedule.startBulk"
-                               @input.debounce.300ms="backupValue('currentSchedule', resolveCurrentSchedule)">
-                        <small class="mt-2 text-sm text-gray-300 opacity-75 italic">First release amount(<span
-                                x-text="Math.round(currentSchedule.startBulk * (currentSchedule.amountOfChapters || 1))"></span>).</small>
-                    </div>
+                    <!-- Legacy Mode Fields -->
+                    <template x-if="isLegacyMode()">
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700" for="startBulk">Start Bulk</label>
+                                <input class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2" id="startBulk" max="1" min="0" step="0.1"
+                                       type="number"
+                                       x-model.number="currentSchedule.startBulk"
+                                       @input.debounce.300ms="backupValue('currentSchedule', resolveCurrentSchedule)">
+                                <small class="mt-2 text-sm text-gray-300 opacity-75 italic">First release amount(<span
+                                        x-text="Math.round(currentSchedule.startBulk * (currentSchedule.amountOfChapters || 1))"></span>).</small>
+                            </div>
 
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700" for="endBulk">End Bulk</label>
-                        <input class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2" id="endBulk" max="1" min="0" step="0.1"
-                               type="number"
-                               x-model.number="currentSchedule.endBulk"
-                               @input.debounce.300ms="backupValue('currentSchedule', resolveCurrentSchedule)">
-                        <small class="mt-2 text-sm text-gray-300 opacity-75 italic">Last release amount(<span
-                                x-text="Math.round(currentSchedule.endBulk * (currentSchedule.amountOfChapters || 1))"></span>).</small>
-                    </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700" for="endBulk">End Bulk</label>
+                                <input class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2" id="endBulk" max="1" min="0" step="0.1"
+                                       type="number"
+                                       x-model.number="currentSchedule.endBulk"
+                                       @input.debounce.300ms="backupValue('currentSchedule', resolveCurrentSchedule)">
+                                <small class="mt-2 text-sm text-gray-300 opacity-75 italic">Last release amount(<span
+                                        x-text="Math.round(currentSchedule.endBulk * (currentSchedule.amountOfChapters || 1))"></span>).</small>
+                            </div>
 
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700" for="peakWidth">Peak Width</label>
+                                <input class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2" id="peakWidth" max="1" min="0" step="0.1"
+                                       type="number"
+                                       x-model.number="currentSchedule.peakWidth"
+                                       @input.debounce.300ms="backupValue('currentSchedule', resolveCurrentSchedule)">
+                                <small class="mt-2 text-sm text-gray-300 opacity-75 italic">Duration of 'wave/peak' period.</small>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700" for="smoothFactor">Smooth Factor</label>
+                                <input class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2" id="smoothFactor" max="1" min="0"
+                                       step="0.1" type="number"
+                                       x-model.number="currentSchedule.smoothFactor"
+                                       @input.debounce.300ms="backupValue('currentSchedule', resolveCurrentSchedule)">
+                                <small class="mt-2 text-sm text-gray-300 opacity-75 italic">Threshold for shuffling schedule
+                                    draft.</small>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700" for="randomFactor">Random Factor</label>
+                                <input class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2" id="randomFactor" max="1" min="0"
+                                       step="0.1" type="number"
+                                       x-model.number="currentSchedule.randomFactor"
+                                       @input.debounce.300ms="backupValue('currentSchedule', resolveCurrentSchedule)">
+                                <small class="mt-2 text-sm text-gray-300 opacity-75 italic">Threshold for shuffling schedule
+                                    draft.</small>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700" for="periodCount">Period Count</label>
+                                <input class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2" id="periodCount" step="0.1" type="number"
+                                       x-model.number="currentSchedule.periodCount"
+                                       @input.debounce.300ms="backupValue('currentSchedule', resolveCurrentSchedule)">
+                                <small class="mt-2 text-sm text-gray-300 opacity-75 italic">Amount of 'waves/peaks'.</small>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700" for="maxChapters">Max Chapters</label>
+                                <input class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2" id="maxChapters" type="number"
+                                       x-model.number="currentSchedule.maxChapters"
+                                       @input.debounce.300ms="backupValue('currentSchedule', resolveCurrentSchedule)">
+                                <small class="mt-2 text-sm text-gray-300 opacity-75 italic">Max amount of chapters for
+                                    release.</small>
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- Common Fields for Both Modes -->
                     <div>
                         <label class="block text-sm font-medium text-gray-700" for="minChapters">Min Chapters</label>
                         <input class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2" id="minChapters" type="number"
@@ -161,51 +225,30 @@
                             release.</small>
                     </div>
 
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700" for="maxChapters">Max Chapters</label>
-                        <input class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2" id="maxChapters" type="number"
-                               x-model.number="currentSchedule.maxChapters"
-                               @input.debounce.300ms="backupValue('currentSchedule', resolveCurrentSchedule)">
-                        <small class="mt-2 text-sm text-gray-300 opacity-75 italic">Max amount of chapters for
-                            release.</small>
-                    </div>
+                    <!-- Annuity Mode Fields -->
+                    <template x-if="!isLegacyMode()">
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700" for="startPercent">Start Percent</label>
+                                <input class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2" id="startPercent" max="100" min="0" step="1"
+                                       type="number"
+                                       x-model.number="currentSchedule.startPercent"
+                                       @input.debounce.300ms="backupValue('currentSchedule', resolveCurrentSchedule)">
+                                <small class="mt-2 text-sm text-gray-300 opacity-75 italic">Start chunk percentage(<span
+                                        x-text="Math.round(currentSchedule.startPercent / 100 * (currentSchedule.amountOfChapters || 1))"></span>).</small>
+                            </div>
 
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700" for="peakWidth">Peak Width</label>
-                        <input class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2" id="peakWidth" max="1" min="0" step="0.1"
-                               type="number"
-                               x-model.number="currentSchedule.peakWidth"
-                               @input.debounce.300ms="backupValue('currentSchedule', resolveCurrentSchedule)">
-                        <small class="mt-2 text-sm text-gray-300 opacity-75 italic">Duration of 'wave/peak' period.</small>
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700" for="smoothFactor">Smooth Factor</label>
-                        <input class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2" id="smoothFactor" max="1" min="0"
-                               step="0.1" type="number"
-                               x-model.number="currentSchedule.smoothFactor"
-                               @input.debounce.300ms="backupValue('currentSchedule', resolveCurrentSchedule)">
-                        <small class="mt-2 text-sm text-gray-300 opacity-75 italic">Threshold for shuffling schedule
-                            draft.</small>
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700" for="randomFactor">Random Factor</label>
-                        <input class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2" id="randomFactor" max="1" min="0"
-                               step="0.1" type="number"
-                               x-model.number="currentSchedule.randomFactor"
-                               @input.debounce.300ms="backupValue('currentSchedule', resolveCurrentSchedule)">
-                        <small class="mt-2 text-sm text-gray-300 opacity-75 italic">Threshold for shuffling schedule
-                            draft.</small>
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700" for="periodCount">Period Count</label>
-                        <input class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2" id="periodCount" step="0.1" type="number"
-                               x-model.number="currentSchedule.periodCount"
-                               @input.debounce.300ms="backupValue('currentSchedule', resolveCurrentSchedule)">
-                        <small class="mt-2 text-sm text-gray-300 opacity-75 italic">Amount of 'waves/peaks'.</small>
-                    </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700" for="endPercent">End Percent</label>
+                                <input class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2" id="endPercent" max="100" min="0" step="1"
+                                       type="number"
+                                       x-model.number="currentSchedule.endPercent"
+                                       @input.debounce.300ms="backupValue('currentSchedule', resolveCurrentSchedule)">
+                                <small class="mt-2 text-sm text-gray-300 opacity-75 italic">End chunk percentage(<span
+                                        x-text="Math.round(currentSchedule.endPercent / 100 * (currentSchedule.amountOfChapters || 1))"></span>).</small>
+                            </div>
+                        </div>
+                    </template>
 
                     <hr class="h-px my-8 bg-gray-200 border-0 dark:bg-gray-700">
 

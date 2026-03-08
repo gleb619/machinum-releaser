@@ -1,16 +1,20 @@
 package machinum.release;
 
+import com.fasterxml.jackson.annotation.JsonAnySetter;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
-import lombok.*;
-import machinum.scheduler.ActionHandler;
-import machinum.scheduler.ActionHandler.ActionType;
-
 import java.time.LocalDate;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import machinum.scheduler.ActionHandler.ActionType;
 
 @Valid
 @Data
@@ -33,56 +37,52 @@ public class ReleaseScheduleRequest {
     @Builder.Default
     private int dayThreshold = 4;
 
-    @Min(1)
-    @NotNull
-    @NotEmpty
-    private int amountOfChapters;
+    private GenerationModeConfig modeConfig;
 
-    @Builder.Default
-    private double startBulk = 0.1;
-
-    @Builder.Default
-    private double endBulk = 0.1;
-
-    @Builder.Default
-    private int minChapters = 10;
-
-    @Builder.Default
-    private int maxChapters = 50;
-
-    @Builder.Default
-    private double peakWidth = 0.4;
-
-    @Builder.Default
-    private double smoothFactor = 0.2;
-
-    @Builder.Default
-    private double randomFactor = 0.3;
-
-    @Builder.Default
-    private double periodCount = 12.0;
-
-    @Getter(lazy = true)
-    private final int periods = (int) Math.max(1, getAmountOfChapters() / (getAmountOfChapters() / getPeriodCount()));
+    private Map<String, Object> modeConfigMap = new LinkedHashMap<>();
 
     @NotNull
     @Builder.Default
     private Map<String, Object> metadata = new HashMap<>();
 
     public int getStart() {
-        return (int) (amountOfChapters * startBulk);
+        return modeConfig.getStart();
     }
 
     public int getEnd() {
-        return (int) (amountOfChapters * endBulk);
+        return modeConfig.getEnd();
     }
 
     public int getMinimal() {
-        return Math.min(getStart(), getMinChapters());
+        return modeConfig.getMinimal();
     }
 
     public int getMaximal() {
-        return Math.max(getEnd(), getMaxChapters());
+        return modeConfig.getMaximal();
+    }
+
+    public int getPeriods() {
+        return modeConfig.getPeriods();
+    }
+
+    public int getMinChapters() {
+        return modeConfig.getMinimal();
+    }
+
+    public GenerationMode getGenerationMode() {
+        return modeConfig.getGenerationMode();
+    }
+
+    @JsonAnySetter
+    public void setDetail(String key, Object value) {
+        this.modeConfigMap.put(key, value);
+    }
+
+    public ReleaseScheduleRequest migrate(ObjectMapper objectMapper) {
+        return toBuilder()
+            .modeConfig(objectMapper.convertValue(modeConfigMap, GenerationModeConfig.class))
+            .modeConfigMap(null)
+            .build();
     }
 
 }
